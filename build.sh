@@ -11,18 +11,10 @@ then
  sudo apt-get install libsdl2-image-2.0-0 && sudo apt-get install libsdl2-image-dev
 fi
 echo
-echo [+] Remember to install [SDL2] libraries: 
-echo _____________________________________________________________________________________
-echo sudo apt-get install libsdl2-2.0-0 
-echo sudo apt-get install libsdl2-dev
-echo sudo apt-get install libsdl2-mixer-2.0-0 
-echo sudo apt-get install libsdl2-mixer-dev
-echo sudo apt-get install libsdl2-image-2.0-0 
-echo sudo apt-get install libsdl2-image-dev
-echo _____________________________________________________________________________________
+echo [+] Troubleshooting: remember to install [SDL2] libraries. 
 echo
 echo [+] Attempting to compile game...
-gcc main.c -lSDL2 -lSDL2_image -lSDL2_mixer -o asteroid
+gcc main.c -lSDL2 -lSDL2_image -lSDL2_mixer -Wall -o asteroid
 echo gcc main.c -lSDL2 -lSDL2_image -lSDL2_mixer -o asteroid
 echo
 echo -e "Run as \e[93m./asteroid\e[0m" 

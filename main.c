@@ -6,12 +6,11 @@
 /*				^	            |	              */
 /*                     [DRAWTOSCREEN] <-      [MOVEOBJECTS]           */
 /* *****************************************************************  */
-
-/* [Authors of Assets]		      */
-/* - Ship: [Seki]from cleanpng.com    */
-/* - Asteroid:  pngwave.com	      */
-/* - Theme: [Jan125] opengameart.org  */
-
+/* [Authors of Assets]		      				      */
+/* - Ship: [Seki]from cleanpng.com    				      */
+/* - Asteroid:  pngwave.com	      				      */
+/* - Theme: [Jan125] opengameart.org  				      */
+/* *****************************************************************  */
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -178,7 +177,6 @@ void DrawObject(TOBJECT Object){
 
 void DrawScreen() {
    int i;
-   char ch;
    SDL_RenderClear(ren1);
    Draw(0,0,background);
    DrawObject(ship);
@@ -231,7 +229,6 @@ void HandleKey(long Sym, BOOL Down){
 
 void HandleEvents(){
   SDL_Event e;
-  int Sym;
   if (SDL_PollEvent(&e)) {
     if (e.type == SDL_QUIT) {
       Running = FALSE;
