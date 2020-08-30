@@ -6,21 +6,18 @@ read -p "[+] Install SDL2 libraries? (sudo required) [Y/N]: " -n 1 -r
 echo    # (optional) move to a new line
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
- sudo-apt get install libsdl2-2.0-0 
- sudo apt-get install libsdl2-dev
- sudo-apt get install libsdl2-mixer-2.0-0 
- sudo apt-get install libsdl2-mixer-dev
- sudo-apt get install libsdl2-image-2.0-0 
- sudo apt-get install libsdl2-image-dev
+ sudo apt-get install libsdl2-2.0-0 && sudo apt-get install libsdl2-dev
+ sudo apt-get install libsdl2-mixer-2.0-0 && sudo apt-get install libsdl2-mixer-dev
+ sudo apt-get install libsdl2-image-2.0-0 sudo apt-get install libsdl2-image-dev
 fi
 echo
 echo [+] Remember to install [SDL2] libraries: 
 echo _____________________________________________________________________________________
-echo sudo-apt get install libsdl2-2.0-0 
+echo sudo apt-get install libsdl2-2.0-0 
 echo sudo apt-get install libsdl2-dev
-echo sudo-apt get install libsdl2-mixer-2.0-0 
+echo sudo apt-get install libsdl2-mixer-2.0-0 
 echo sudo apt-get install libsdl2-mixer-dev
-echo sudo-apt get install libsdl2-image-2.0-0 
+echo sudo apt-get install libsdl2-image-2.0-0 
 echo sudo apt-get install libsdl2-image-dev
 echo _____________________________________________________________________________________
 echo
