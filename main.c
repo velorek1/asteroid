@@ -13,6 +13,7 @@
 /* *****************************************************************  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include <time.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
@@ -20,8 +21,14 @@
 
 #define TRUE 1
 #define FALSE 0
+#define PI 3.14159265
+//GAME CONSTANTS
 #define MAX_KEY 1000
+#define UP 1
+#define DOWN 0
 #define SPEED 8
+#define ROTATION 5.5
+//MESSAGES
 #define STS_MSG0 "SDL Graphics loaded successfully.\n"
 #define ERR_MSG0 "SDL Graphics could not be loaded. \n"
 #define ERR_MSG1 "Failed to load asset. \n"
@@ -29,7 +36,7 @@
 typedef struct _tobject { 
    //int Index;
    int X,Y,W,H;
-   float FX,DX;
+   float DX,DY;
    int Angle;
    SDL_Surface *Img;
    //struct _tobject *next; 
@@ -49,6 +56,7 @@ BOOL Running=TRUE;
 BOOL keypressed=FALSE;
 time_t t;
 Mix_Music *Theme;
+//int Angle=0;
 //Mix_Chunk *Snd1, *Snd2, *Snd3;
  
 
@@ -63,9 +71,14 @@ void  NewGame();
 void  UpdateGame();
 void  Main_Loop();
 void  CleanMemory();
-void  movePlayerXY(int D);
-void  moveShip();
+void  movePlayerXY(int speed, int direction);
+void  rotateBy(TOBJECT *Object, float D);
+void  Ship_Behaviour();
 void  moveAsteroids();
+/* Mathematics */
+double sinD(int degree);
+double cosD(int degree);
+int getSign(int number);
 /* Drawing */
 void Draw(int X, int Y, SDL_Surface *Img);
 void DrawObject(TOBJECT Object);
@@ -129,6 +142,8 @@ void NewGame(){
   /* SHIP */ 
   ship.X = 100;
   ship.Y = 100;
+  ship.DX = ship.X;
+  ship.DY = ship.Y;
   ship.W = 50;
   ship.H = 70;
   ship.Angle = 0;  
@@ -187,13 +202,49 @@ void DrawScreen() {
 }
 
 /* Move functions */
-void movePlayerXY(int D){
-   ship.Y = ship.Y + D;
+double sinD(int degree){
+    double ret,val;
+    val = PI / 180;
+    ret = sin(degree*val);
+    return ret;
 }
 
-void moveShip(){
-  if (ship.Y < -10) ship.Y = 480;
-  if (ship.Y > 490) ship.Y = 0;
+double cosD(int degree){
+    double ret,val;
+    val = PI / 180;
+    ret = cos(degree*val);
+    return ret;
+}
+int getSign(int number){
+  if (number < 0) 
+    return -1;
+  else
+    return 1;
+}
+void movePlayerXY(int speed, int direction){
+   ship.DX = ship.DX + (speed*sinD(ship.Angle))*-1; 
+   ship.DY = ship.DY + (speed*cosD(ship.Angle)); 
+   ship.X = round(ship.DX);
+   ship.Y = round(ship.DY);
+   printf("\nAngle: %d | Ship.X: %d | Ship.Y: %d | SinD : %f | CosD : %f\n", ship.Angle,ship.X, ship.Y, sinD(ship.Angle), cosD(ship.Angle));        
+}
+
+void rotateBy(TOBJECT *Object, float D){
+   float temp;
+   if(abs(Object->Angle + D) < 181) {
+     temp = Object->Angle + D;
+     Object->Angle = round(temp);
+   } else{
+      Object->Angle = Object->Angle * -1;  
+    }
+}
+
+
+void Ship_Behaviour(){
+  if (ship.Y < -10) {ship.Y = 480; ship.DY = 480;}
+  if (ship.Y > 490) {ship.Y = 0; ship.DY = 0;}
+  if (ship.X > 640) {ship.X = 0; ship.DX = 0;}
+  if (ship.X < -10) {ship.X = 640; ship.DX = 640;}
 }
 void moveAsteroids(){
 }
@@ -201,11 +252,11 @@ void moveAsteroids(){
 
 void UpdateGame(){
   if (Key(SDLK_q)) printf("Q\n");
-  if (Key(SDL_SCANCODE_UP)) movePlayerXY(-SPEED);
-  if (Key(SDL_SCANCODE_DOWN)) movePlayerXY(SPEED);
-  if (Key(SDL_SCANCODE_RIGHT)) printf("RIGHT\n");
-  if (Key(SDL_SCANCODE_LEFT)) printf("LEFT\n");
-  moveShip();
+  if (Key(SDL_SCANCODE_UP)) movePlayerXY(-SPEED,UP);
+  if (Key(SDL_SCANCODE_DOWN)) movePlayerXY(SPEED,DOWN);
+  if (Key(SDL_SCANCODE_RIGHT)) rotateBy(&ship, ROTATION);
+  if (Key(SDL_SCANCODE_LEFT)) rotateBy(&ship, -ROTATION);
+  Ship_Behaviour();
   moveAsteroids();
 }
 

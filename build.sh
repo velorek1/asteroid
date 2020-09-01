@@ -14,7 +14,7 @@ echo
 echo [+] Troubleshooting: remember to install [SDL2] libraries. 
 echo
 echo [+] Attempting to compile game...
-gcc main.c -lSDL2 -lSDL2_image -lSDL2_mixer -Wall -o asteroid
+gcc main.c -lSDL2 -lSDL2_image -lSDL2_mixer -lm -Wall -o asteroid
 echo gcc main.c -lSDL2 -lSDL2_image -lSDL2_mixer -o asteroid
 echo
 echo -e "Run as \e[93m./asteroid\e[0m" 
