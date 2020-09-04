@@ -22,6 +22,8 @@
 
 #define PI 3.14159265
 //GAME CONSTANTS
+#define SCREEN_W 640
+#define SCREEN_H 480
 #define ASTW0 80
 #define ASTH0 80
 #define ASTW1 60
@@ -48,8 +50,9 @@ enum SHIPSTATE{HALTED, UTHRUST, DTHRUST, LTHRUST, RTHRUST, DAMAGED};
 /* GLOBALS */
 OBJECT ship;
 OBJECT *asteroids;
+OBJECT *projectiles;
 SPRITE shipSprite[9];
-SDL_Surface *background,*asteroid;
+SDL_Surface *background,*asteroid,*projectile;
 SDL_Event ev;
 SDL_Renderer *ren1;
 SDL_Window *win1;
@@ -60,6 +63,7 @@ time_t t;
 Mix_Music *Theme;
 enum SHIPSTATE ShipState;
 int level=0; int lives=MAX_LIFE;
+double PlayerShootTime;
 //int Angle=0;
 //Mix_Chunk *Snd1, *Snd2, *Snd3;
  
@@ -82,6 +86,8 @@ BOOL Key(long K);
 void HandleKey(long Sym, BOOL Down);
 void HandleEvents();
 /* Game engine */
+
+void  LaunchProjectile(double X, double Y, double DX, double DY, SDL_Surface *Img);
 void  LoadAssets();
 void  NewGame();
 void  UpdateGame();
@@ -90,6 +96,9 @@ void  movePlayerXY(int speed, int direction);
 void  rotateBy(OBJECT *Object, float D);
 void  Ship_Behaviour();
 void  moveAsteroids();
+void  moveProjectiles();
+void  ShootPlayerBullet();
+//void  deleteObject(OBJECT **head, int index);
 /* Drawing */
 void Draw(int X, int Y, SDL_Surface *Img);
 void DrawObject(OBJECT Object);
@@ -140,7 +149,7 @@ int getSign(int number){
 BOOL InitVideo(){
    SDL_Init(SDL_INIT_VIDEO);
    IMG_Init(IMG_INIT_PNG);
-   win1 = SDL_CreateWindow(" > Ast3r0id <", 50,50, 640,480,SDL_WINDOW_SHOWN);
+   win1 = SDL_CreateWindow(" > Ast3r0id <", 50,0,SCREEN_W,SCREEN_H,SDL_WINDOW_SHOWN);
    ren1 = SDL_CreateRenderer(win1, -1, 0);
    return (ren1 != NULL) && (win1 != NULL);
 }
@@ -217,6 +226,9 @@ void LoadAssets(){
 //  if (ship.Img == NULL) {fprintf(stderr, ERR_MSG1); exit(0);}   
   asteroid = IMG_Load("data/pics/asteroid.png");
   if (asteroid == NULL)  {fprintf(stderr, ERR_MSG1); exit(0);}  
+  projectile = IMG_Load("data/pics/fire1.png");
+  if (projectile == NULL)  {fprintf(stderr, ERR_MSG1); exit(0);}  
+
   shipSprite[0].Img = IMG_Load("data/pics/ship.png");
   if (shipSprite[0].Img == NULL) {fprintf(stderr, ERR_MSG1);  printf("0");exit(0);}   
    shipSprite[1].Img = IMG_Load("data/pics/ship_plume.png");
@@ -241,6 +253,27 @@ void LoadAssets(){
   Theme = Mix_LoadMUS("data/snd/theme.ogg");
   if (Theme == NULL)  {fprintf(stderr, ERR_MSG1); exit(0);}  
 }
+
+void LaunchProjectile(double X, double Y, double DX, double DY, SDL_Surface *Img){
+OBJECT p;
+  if (projectiles == NULL) 
+    p.index = 0;
+  else{
+    p.index = length(&projectiles);
+  } 
+  p.Img = Img;
+  p.X = round(X);
+  p.Y = round(Y);
+  p.Angle = ship.Angle;
+  p.W = 16;
+  p.H = 16;
+  p.DX = DX;
+  p.DY = DY;
+  p.FX = X;
+  p.FY = Y;
+  printf("FX: %f FY: %f  | DX:%f DY%f | X: %d Y:%d \n", p.FX,p.FY,p.DX,p.DY,p.X, p.Y);
+  projectiles=addend(projectiles, newelement(p)); 
+} 
 
 void NewGame(){
   int i,a;
@@ -354,9 +387,20 @@ void DrawScreen() {
  	case DAMAGED: a=rand() & 1; ship.Img = shipSprite[a+7].Img; break;			        
     }
    DrawObject(ship);
-   for (i=0;i<length(&asteroids);i++){
-     DrawDynamicObject(getObject(asteroids,i));
+   
+   if (asteroids != NULL) {
+     for (i=0;i<length(&asteroids);i++){
+       DrawDynamicObject(getObject(asteroids,i));
+     }
    }
+
+   if (projectiles != NULL && length(&projectiles) > 0) {
+     for (i=0;i<length(&projectiles);i++){
+       DrawDynamicObject(getObject(projectiles,i));
+     }
+   }
+
+
    SDL_RenderPresent(ren1);
 }
 
@@ -368,6 +412,25 @@ void movePlayerXY(int speed, int direction){
    ship.X = round(ship.DX);
    ship.Y = round(ship.DY);
    printf("\nAngle: %d | Ship.X: %d | Ship.Y: %d | SinD : %f | CosD : %f\n", ship.Angle,ship.X, ship.Y, sinD(ship.Angle), cosD(ship.Angle));        
+}
+
+void moveProjectiles(){
+  int i;
+  OBJECT *p;
+ for (i=0; i<length(&projectiles);i++){
+    p = getObject(projectiles,i);
+    //inprogress
+    p->FX = p->FX + p->DX + (8*sinD(p->Angle)); 
+    p->FY = p->FY + p->DY + (8*cosD(p->Angle)); 
+    p->X = round(p->FX);
+    p->Y = round(p->FY);
+   
+    if (p->Y < -10 || p->Y > SCREEN_H + 10 || p-> X < -10 || p-> X > SCREEN_W + 10) {
+	deleteObject(&projectiles,0,TRUE);
+	if (projectiles != NULL) printf("%d\n",length(&projectiles));
+	break;
+    }
+  }
 }
 
 void rotateBy(OBJECT *Object, float D){
@@ -382,10 +445,10 @@ void rotateBy(OBJECT *Object, float D){
 
 
 void Ship_Behaviour(){
-  if (ship.Y < -10) {ship.Y = 480; ship.DY = 480;}
-  if (ship.Y > 490) {ship.Y = 0; ship.DY = 0;}
-  if (ship.X > 640) {ship.X = 0; ship.DX = 0;}
-  if (ship.X < -10) {ship.X = 640; ship.DX = 640;}
+  if (ship.Y < -10) {ship.Y = SCREEN_H; ship.DY = SCREEN_H;}
+  if (ship.Y > SCREEN_H+10) {ship.Y = 0; ship.DY = 0;}
+  if (ship.X > SCREEN_W + 10) {ship.X = 0; ship.DX = 0;}
+  if (ship.X < -10) {ship.X = SCREEN_W; ship.DX = SCREEN_W;}
 }
 
 void moveAsteroids(){
@@ -422,16 +485,28 @@ void moveAsteroids(){
     p->X = round(p->DX);
     p->Y = round(p->DY);
     p->Angle += 3.5;
-    if (p->Y < -10) {p->Y = 480; p->DY = 480;}
-    if (p->Y > 490) {p->Y = 0; p->DY = 0;}
-    if (p->X > 640) {p->X = 0; p->DX = 0;}
-    if (p->X < -10) {p->X = 640; p->DX = 640;}
+    if (p->Y < -10) {p->Y = SCREEN_H; p->DY = SCREEN_H;}
+    if (p->Y > SCREEN_H + 10) {p->Y = 0; p->DY = 0;}
+    if (p->X > SCREEN_W + 10) {p->X = 0; p->DX = 0;}
+    if (p->X < -10) {p->X = SCREEN_W; p->DX = SCREEN_W;}
   } 
+}
+
+void ShootPlayerBullet(){
+ if (SDL_GetTicks() - PlayerShootTime < 200) {
+   //Do nothing
+ } else{
+   PlayerShootTime = SDL_GetTicks();
+   printf("Shoot\n");
+   LaunchProjectile(ship.X+16, ship.Y, 0,-4, projectile);
+   //printf("FX: %f FY: %f  | DX:%f DY%f | X: %d Y:%d \n", p->FX,p->FY,p->DX,p->DY,p->X, p->Y);   
+}
 }
 
 void UpdateGame(){
   if (Key(SDLK_q)) printf("Q\n");
   if (Key(SDLK_f)) ToggleFullscreen(win1);
+  if (Key(SDLK_SPACE)) ShootPlayerBullet();
   if (Key(SDL_SCANCODE_UP)) {ShipState = UTHRUST; movePlayerXY(-SPEED,UP);}
   if (Key(SDL_SCANCODE_DOWN)) {ShipState = DTHRUST; movePlayerXY(SPEED,DOWN);}
   if (Key(SDL_SCANCODE_RIGHT)) {ShipState = RTHRUST; rotateBy(&ship, ROTATION);}
@@ -439,6 +514,7 @@ void UpdateGame(){
   if (!keypressed) ShipState = HALTED;
   Ship_Behaviour();
   moveAsteroids();
+  moveProjectiles();
 }
 
 void Main_Loop(){

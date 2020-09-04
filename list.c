@@ -20,36 +20,39 @@ OBJECT *newelement(OBJECT temp)
 	newp->Life = temp.Life;
 	newp->DX = temp.DX;
 	newp->DY = temp.DY;
+	newp->FX = temp.FX;
+	newp->FY = temp.FY;
 	newp->Angle = temp.Angle;
         newp -> next = NULL;
 	return newp;
 }
 
-// delelement: remove from list the first instance of an element 
-// containing a given text string
-// NOTE!! delete requests for elements not in the list are silently ignored 
-OBJECT *delelement(OBJECT *head, int index)
+// Delete first element on list whose item field matches the given text
+// NOTE!! delete requests for elements not in the list are silently ignored :-)
+void RemoveThing(OBJECT **head, int index)
 {
-	OBJECT *p, *prev;
-	prev = NULL;
-	for (p = head; p != NULL; p = p -> next) {
-            if (p -> index == index) {
-		if(prev == NULL)
-		   head = p-> next;
-		else
-		   prev -> next = p -> next;
-		free(p);	// remove rest of OBJECT
-		return head;
-	   }
-	   prev = p;	
+	BOOL present = FALSE;
+	OBJECT *old;
+	OBJECT **tracer = head;
+	if ((*tracer)->index==index) present=TRUE;
+	while((*tracer) && !(present)){
+		if ((*tracer)->index==index) present=TRUE;
+		tracer = &(*tracer)->next;
+	}
+
+	if(present)
+	{
+		old = *tracer;
+		*tracer = (*tracer)->next;
+		free(old); // free up remainder of list element 
 	}
 }
 void deleteList(OBJECT **head) 
 { 
    /* deref head_ref to get the real head */
    OBJECT *current = *head; 
-   OBJECT *next = NULL; 
-  
+   OBJECT *next = NULL;
+   OBJECT **tracer=head; 
    while (current != NULL)  
    { 
        next = current->next; 
@@ -59,7 +62,8 @@ void deleteList(OBJECT **head)
     
    /* deref head_ref to affect the real head back 
       in the caller. */
-   *head = NULL; 
+
+   *tracer = NULL;
 } 
 
 
@@ -90,6 +94,25 @@ OBJECT *getObject(OBJECT *head, int index)
 	 return p;
 	
 }
+// delelement: remove from list the first instance of an element 
+// containing a given text string
+// NOTE!! delete requests for elements not in the list are silently ignored 
+OBJECT *delelement(OBJECT *head, int index)
+{
+	OBJECT *p, *prev;
+	prev = NULL;
+	for (p = head; p != NULL; p = p -> next) {
+            if (p -> index == index) {
+		if(prev == NULL)
+		   head = p-> next;
+		else
+		   prev -> next = p -> next;
+		free(p);	// remove rest of OBJECT
+		return head;
+	   }
+	   prev = p;	
+	}
+}
 /* addfront: add new OBJECT to front of list  */
 /* example usage: start = (addfront(start, newelement("burgers")); */
 
@@ -118,10 +141,10 @@ void printlist(OBJECT **head)
 // this routine uses pointer-to-pointer techniques :-)
 {
 	OBJECT **tracer = head;
-	while ((*tracer) != NULL) {
+	  while ((*tracer) != NULL) {
 		printf("%d \n",(*tracer)->index);
 		tracer = &(*tracer)->next;
-	}
+	  }  
 }
 
 int length(OBJECT **head)
@@ -136,18 +159,26 @@ int length(OBJECT **head)
 	}
        return count;
 }
-void reindex(OBJECT *head)
+void reindex(OBJECT **head)
 {
 	int count=0;	
-	OBJECT *p2; 	
-	if (head != NULL){	
-	  for (p2 = head; p2 -> next != NULL; p2 = p2 -> next){
- 	   p2->index = count;
-	   count = count +1; 
-	  }
-	 p2->index = count;
-        }               
+	OBJECT *p=NULL;
+	OBJECT **tracer = head;
+	while ((*tracer) != NULL) {
+		p = *tracer;
+		p->index=count;
+		count = count +1;
+		tracer = &(*tracer)->next;
+	}           
 }
 
+void deleteObject(OBJECT **head,int index, BOOL sort){
+   OBJECT *p=*head;
+  if (index == 0 || length(head) <=1 || p->index == index )
+    RemoveThing(head,index);
+  else 
+    delelement(*head,index);
+  if (sort == TRUE) reindex(head); 
+}
 
 
