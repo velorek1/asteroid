@@ -11,8 +11,6 @@ then
  sudo apt-get install libsdl2-image-2.0-0 && sudo apt-get install libsdl2-image-dev
 fi
 echo
-echo [+] Troubleshooting: remember to install [SDL2] libraries. 
-echo
 echo [+] Attempting to compile game...
 gcc -c list.c
 gcc -c -Wall main.c

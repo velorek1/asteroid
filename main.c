@@ -59,8 +59,10 @@ SDL_Window *win1;
 long KeyState[MAX_KEY];
 BOOL Running=TRUE;
 BOOL keypressed=FALSE;
+BOOL mouseclicked=FALSE;
 time_t t;
 Mix_Music *Theme;
+Mix_Chunk *sound,*shot;
 enum SHIPSTATE ShipState;
 int level=0; int lives=MAX_LIFE;
 double PlayerShootTime;
@@ -192,7 +194,8 @@ void HandleKey(long Sym, BOOL Down){
   if (Sym == SDLK_DOWN) Sym = SDL_SCANCODE_DOWN;
   if (Sym == SDLK_LEFT) Sym = SDL_SCANCODE_LEFT;
   if (Sym == SDLK_RIGHT) Sym = SDL_SCANCODE_RIGHT;
-  if ((Sym >= 0) && (Sym <= MAX_KEY)) {
+  if (Sym == SDLK_SPACE) Sym = SDL_SCANCODE_SPACE;
+   if ((Sym >= 0) && (Sym <= MAX_KEY)) {
     KeyState[Sym] = Down;
     if (Sym == SDLK_ESCAPE) Running = FALSE;    
   }
@@ -208,6 +211,12 @@ void HandleEvents(){
     if (e.type == SDL_KEYDOWN){
       keypressed = TRUE;
       HandleKey(e.key.keysym.sym, TRUE);
+    }
+    if (e.type == SDL_MOUSEBUTTONDOWN){
+      mouseclicked = TRUE;
+    }
+    if (e.type == SDL_MOUSEBUTTONUP){
+      mouseclicked = FALSE;
     }
     if (e.type == SDL_KEYUP){
       keypressed = FALSE;
@@ -251,7 +260,14 @@ void LoadAssets(){
   ship.Img = shipSprite[0].Img;   
   /* Music and Sounds */
   Theme = Mix_LoadMUS("data/snd/theme.ogg");
-  if (Theme == NULL)  {fprintf(stderr, ERR_MSG1); exit(0);}  
+   if (Theme == NULL)  {fprintf(stderr, ERR_MSG1); exit(0);} 
+   sound = Mix_LoadWAV("data/snd/rockets.wav");
+   if (sound == NULL) {fprintf(stderr, ERR_MSG1); exit(0);} 
+   Mix_VolumeChunk( sound, MIX_MAX_VOLUME );
+
+   shot = Mix_LoadWAV("data/snd/shot.wav");
+   if (shot == NULL) {fprintf(stderr, ERR_MSG1); exit(0);}    
+   Mix_VolumeChunk(shot, MIX_MAX_VOLUME ); 
 }
 
 void LaunchProjectile(double X, double Y, double DX, double DY, SDL_Surface *Img){
@@ -262,15 +278,15 @@ OBJECT p;
     p.index = length(&projectiles);
   } 
   p.Img = Img;
-  p.X = round(X);
-  p.Y = round(Y);
   p.Angle = ship.Angle;
   p.W = 16;
   p.H = 16;
+  p.FX = (ship.X+(ship.W-10)/2) + ((cosD(p.Angle) *-1) - (sinD(p.Angle) * 40)*-1);
+  p.FY = (ship.Y+(ship.H-30)/2) + (sinD(p.Angle) * -1) + ((cosD(p.Angle) * 40*-1));
   p.DX = DX;
   p.DY = DY;
-  p.FX = X;
-  p.FY = Y;
+  p.X = round(p.FX);
+  p.Y = round(p.FY);
   printf("FX: %f FY: %f  | DX:%f DY%f | X: %d Y:%d \n", p.FX,p.FY,p.DX,p.DY,p.X, p.Y);
   projectiles=addend(projectiles, newelement(p)); 
 } 
@@ -415,13 +431,14 @@ void movePlayerXY(int speed, int direction){
 }
 
 void moveProjectiles(){
-  int i;
-  OBJECT *p;
+  int i,j;
+  OBJECT *p,*a;
+  BOOL bcollision=FALSE;
  for (i=0; i<length(&projectiles);i++){
     p = getObject(projectiles,i);
-    //inprogress
-    p->FX = p->FX + p->DX + (8*sinD(p->Angle)); 
-    p->FY = p->FY + p->DY + (8*cosD(p->Angle)); 
+    //Vector rotation
+    p->FX = p->FX + (p->DX*sinD(p->Angle)); 
+    p->FY = p->FY + (p->DY*cosD(p->Angle))*-1; 
     p->X = round(p->FX);
     p->Y = round(p->FY);
    
@@ -430,9 +447,22 @@ void moveProjectiles(){
 	if (projectiles != NULL) printf("%d\n",length(&projectiles));
 	break;
     }
-  }
+   //Collision with Asteroids.
+  for (j=0; j<length(&asteroids); j++){
+     a=getObject(asteroids,j);
+    //Collision with Projectile
+    if (Collision(p->X,p->Y,p->X+p->W,p->Y+p->H,a->X,a->Y,
+    a->X+a->W,a->Y+a->H)) {
+	printf("\n Asteroid #%d destroyed: \n",a->index);
+	deleteObject(&asteroids,j,TRUE);
+	deleteObject(&projectiles,i,TRUE);
+	bcollision = TRUE;
+	break;
+     }
+   }
+  if (bcollision == TRUE) break;
+ }
 }
-
 void rotateBy(OBJECT *Object, float D){
    float temp;
    if(abs(Object->Angle + D) < 181) {
@@ -497,21 +527,25 @@ void ShootPlayerBullet(){
    //Do nothing
  } else{
    PlayerShootTime = SDL_GetTicks();
-   printf("Shoot\n");
-   LaunchProjectile(ship.X+16, ship.Y, 0,-4, projectile);
+   if (Mix_Playing(2) == 0) Mix_PlayChannel(2, shot, 0);
+   LaunchProjectile(ship.X+16, ship.Y-2, 10,10, projectile);
    //printf("FX: %f FY: %f  | DX:%f DY%f | X: %d Y:%d \n", p->FX,p->FY,p->DX,p->DY,p->X, p->Y);   
 }
 }
 
 void UpdateGame(){
-  if (Key(SDLK_q)) printf("Q\n");
+  //if (Key(SDLK_q)) printf("Q\n");
   if (Key(SDLK_f)) ToggleFullscreen(win1);
-  if (Key(SDLK_SPACE)) ShootPlayerBullet();
-  if (Key(SDL_SCANCODE_UP)) {ShipState = UTHRUST; movePlayerXY(-SPEED,UP);}
-  if (Key(SDL_SCANCODE_DOWN)) {ShipState = DTHRUST; movePlayerXY(SPEED,DOWN);}
-  if (Key(SDL_SCANCODE_RIGHT)) {ShipState = RTHRUST; rotateBy(&ship, ROTATION);}
-  if (Key(SDL_SCANCODE_LEFT)) {ShipState = LTHRUST; rotateBy(&ship, -ROTATION);}
-  if (!keypressed) ShipState = HALTED;
+  if (Key(SDL_SCANCODE_SPACE)) {ShootPlayerBullet();}
+  if (Key(SDL_SCANCODE_UP) || Key(SDLK_w)) {if (Mix_Playing(1) == 0) Mix_PlayChannel( 1, sound, 0);ShipState = UTHRUST; movePlayerXY(-SPEED,UP);}
+  if (Key(SDL_SCANCODE_DOWN) || Key(SDLK_s)) {if (Mix_Playing(1) == 0) Mix_PlayChannel( 1, sound, 0);ShipState = DTHRUST; movePlayerXY(SPEED,DOWN);}
+  if (Key(SDL_SCANCODE_RIGHT) || Key(SDLK_d)) {if (Mix_Playing(1) == 0) Mix_PlayChannel( 1, sound, 0);ShipState = RTHRUST; rotateBy(&ship, ROTATION);}
+  if (Key(SDL_SCANCODE_LEFT) || Key(SDLK_a)) {if (Mix_Playing(1) == 0) Mix_PlayChannel( 1, sound, 0);ShipState = LTHRUST; rotateBy(&ship, -ROTATION);}
+  if (!keypressed) {
+     ShipState = HALTED;
+     if (Mix_Playing(1) != 0) Mix_FadeOutChannel(1,500);	
+  }
+  if (mouseclicked == TRUE) {ShootPlayerBullet();}
   Ship_Behaviour();
   moveAsteroids();
   moveProjectiles();
