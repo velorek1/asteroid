@@ -67,9 +67,7 @@ Mix_Chunk *sound,*shot;
 enum SHIPSTATE ShipState;
 int level=0; int lives=MAX_LIFE;
 double PlayerShootTime;
-//int Angle=0;
-//Mix_Chunk *Snd1, *Snd2, *Snd3;
- 
+
 
 /* ---------------------------------------------- */
 /* FUNCTION PROTOTYPES */
@@ -101,7 +99,6 @@ void  Ship_Behaviour();
 void  moveAsteroids();
 void  moveProjectiles();
 void  ShootPlayerBullet();
-//void  deleteObject(OBJECT **head, int index);
 /* Drawing */
 void Draw(int X, int Y, SDL_Surface *Img);
 void DrawObject(OBJECT Object);
@@ -234,31 +231,29 @@ void LoadAssets(){
   /* Images */
   background = SDL_LoadBMP("data/pics/spexpb.bmp");
   if (background == NULL) {fprintf(stderr, ERR_MSG1); exit(0);} 
-//  ship.Img = IMG_Load("data/pics/ship.png");
-//  if (ship.Img == NULL) {fprintf(stderr, ERR_MSG1); exit(0);}   
   asteroid = IMG_Load("data/pics/asteroid.png");
   if (asteroid == NULL)  {fprintf(stderr, ERR_MSG1); exit(0);}  
   projectile = IMG_Load("data/pics/fire1.png");
   if (projectile == NULL)  {fprintf(stderr, ERR_MSG1); exit(0);}  
 
   shipSprite[0].Img = IMG_Load("data/pics/ship.png");
-  if (shipSprite[0].Img == NULL) {fprintf(stderr, ERR_MSG1);  printf("0");exit(0);}   
+  if (shipSprite[0].Img == NULL) {fprintf(stderr, ERR_MSG1);exit(0);}   
    shipSprite[1].Img = IMG_Load("data/pics/ship_plume.png");
-  if (shipSprite[1].Img == NULL) {fprintf(stderr, ERR_MSG1);  printf("1");exit(0);}   
+  if (shipSprite[1].Img == NULL) {fprintf(stderr, ERR_MSG1);exit(0);}   
   shipSprite[2].Img = IMG_Load("data/pics/ship_plume2.png");
-  if (shipSprite[2].Img == NULL) {fprintf(stderr, ERR_MSG1);  printf("2");exit(0);}   
+  if (shipSprite[2].Img == NULL) {fprintf(stderr, ERR_MSG1);exit(0);}   
    shipSprite[3].Img = IMG_Load("data/pics/ship_plume3.png");
-  if (shipSprite[3].Img == NULL) {fprintf(stderr, ERR_MSG1);  printf("3");exit(0);}   
+  if (shipSprite[3].Img == NULL) {fprintf(stderr, ERR_MSG1);exit(0);}   
    shipSprite[4].Img = IMG_Load("data/pics/ship_plume4.png");
-  if (shipSprite[4].Img == NULL) {fprintf(stderr, ERR_MSG1);  printf("4");exit(0);}   
+  if (shipSprite[4].Img == NULL) {fprintf(stderr, ERR_MSG1);exit(0);}   
   shipSprite[5].Img = IMG_Load("data/pics/ship_plume5.png");
-  if (shipSprite[5].Img == NULL) {fprintf(stderr, ERR_MSG1);  printf("4");exit(0);}   
+  if (shipSprite[5].Img == NULL) {fprintf(stderr, ERR_MSG1);exit(0);}   
    shipSprite[6].Img = IMG_Load("data/pics/ship_plume6.png");
-  if (shipSprite[6].Img == NULL) {fprintf(stderr, ERR_MSG1);  printf("5");exit(0);}
+  if (shipSprite[6].Img == NULL) {fprintf(stderr, ERR_MSG1);exit(0);}
    shipSprite[7].Img = IMG_Load("data/pics/ship_dmg0.png");
-  if (shipSprite[7].Img == NULL) {fprintf(stderr, ERR_MSG1);  printf("5");exit(0);}
+  if (shipSprite[7].Img == NULL) {fprintf(stderr, ERR_MSG1);exit(0);}
    shipSprite[8].Img = IMG_Load("data/pics/ship_dmg1.png");
-  if (shipSprite[8].Img == NULL) {fprintf(stderr, ERR_MSG1);  printf("5");exit(0);}
+  if (shipSprite[8].Img == NULL) {fprintf(stderr, ERR_MSG1);exit(0);}
   
   ship.Img = shipSprite[0].Img;   
   /* Music and Sounds */
@@ -290,7 +285,6 @@ OBJECT p;
   p.DY = DY;
   p.X = round(p.FX);
   p.Y = round(p.FY);
-  printf("FX: %f FY: %f  | DX:%f DY%f | X: %d Y:%d \n", p.FX,p.FY,p.DX,p.DY,p.X, p.Y);
   projectiles=addend(projectiles, newelement(p)); 
 } 
 
@@ -355,7 +349,6 @@ void NewGame(){
     tY = rand() % 480;
     tSIZE = rand() % 3;
     addAsteroid(tX,tY,tDIRX, tDIRY, tSIZE);
-    printf("Size : %d\n",tSIZE); 
  }
    /* Music */
     Mix_PlayMusic(Theme, -1); 
@@ -435,11 +428,11 @@ void DrawScreen() {
 //Move functions
 
 void movePlayerXY(int speed, int direction){
+   if (Mix_Playing(1) == 0) Mix_PlayChannel( 1, sound, 0); 
    ship.DX = ship.DX + (speed*sinD(ship.Angle))*-1; 
    ship.DY = ship.DY + (speed*cosD(ship.Angle)); 
    ship.X = round(ship.DX);
    ship.Y = round(ship.DY);
-   printf("\nAngle: %d | Ship.X: %d | Ship.Y: %d | SinD : %f | CosD : %f\n", ship.Angle,ship.X, ship.Y, sinD(ship.Angle), cosD(ship.Angle));        
 }
 
 void moveProjectiles(){
@@ -453,10 +446,9 @@ void moveProjectiles(){
     p->FY = p->FY + (p->DY*cosD(p->Angle))*-1; 
     p->X = round(p->FX);
     p->Y = round(p->FY);
-   
+    //Delete projectiles which get off the screen
     if (p->Y < -10 || p->Y > SCREEN_H + 10 || p-> X < -10 || p-> X > SCREEN_W + 10) {
 	deleteObject(&projectiles,0,TRUE);
-	if (projectiles != NULL) printf("%d\n",length(&projectiles));
 	break;
     }
    //Collision with Asteroids.
@@ -465,7 +457,6 @@ void moveProjectiles(){
     //Collision with Projectile
     if (Collision(p->X,p->Y,p->X+p->W,p->Y+p->H,a->X,a->Y,
     a->X+a->W,a->Y+a->H)) {
-	printf("\n Asteroid #%d destroyed: \n",a->index);
 	if(a->Life == 1 ) deleteObject(&asteroids,j,TRUE);
 	if(a->Life == 2){ 
 	     addAsteroid(a->X, a->Y, 1,1,2);
@@ -488,6 +479,7 @@ void moveProjectiles(){
 }
 void rotateBy(OBJECT *Object, float D){
    float temp;
+   if (Mix_Playing(1) == 0) Mix_PlayChannel( 1, sound, 0);
    if(abs(Object->Angle + D) < 181) {
      temp = Object->Angle + D;
      Object->Angle = round(temp);
@@ -518,7 +510,6 @@ void moveAsteroids(){
     	p->DIRY = p->DIRY * -1;
 	ShipState = DAMAGED;
  	lives = lives -1;
-	printf("\n Collision with Asteroid #%d: \n", p->index);
         if(lives == 0) {SDL_Delay(1000);NewGame();}
     }
     //Collision with Asteroids
@@ -552,7 +543,6 @@ void ShootPlayerBullet(){
    PlayerShootTime = SDL_GetTicks();
    if (Mix_Playing(2) == 0) Mix_PlayChannel(2, shot, 0);
    LaunchProjectile(ship.X+16, ship.Y-2, 10,10, projectile);
-   //printf("FX: %f FY: %f  | DX:%f DY%f | X: %d Y:%d \n", p->FX,p->FY,p->DX,p->DY,p->X, p->Y);   
 }
 }
 
@@ -560,10 +550,10 @@ void UpdateGame(){
   //if (Key(SDLK_q)) printf("Q\n");
   if (Key(SDLK_f)) ToggleFullscreen(win1);
   if (Key(SDL_SCANCODE_SPACE)) {ShootPlayerBullet();}
-  if (Key(SDL_SCANCODE_UP) || Key(SDLK_w)) {if (Mix_Playing(1) == 0) Mix_PlayChannel( 1, sound, 0);ShipState = UTHRUST; movePlayerXY(-SPEED,UP);}
-  if (Key(SDL_SCANCODE_DOWN) || Key(SDLK_s)) {if (Mix_Playing(1) == 0) Mix_PlayChannel( 1, sound, 0);ShipState = DTHRUST; movePlayerXY(SPEED,DOWN);}
-  if (Key(SDL_SCANCODE_RIGHT) || Key(SDLK_d)) {if (Mix_Playing(1) == 0) Mix_PlayChannel( 1, sound, 0);ShipState = RTHRUST; rotateBy(&ship, ROTATION);}
-  if (Key(SDL_SCANCODE_LEFT) || Key(SDLK_a)) {if (Mix_Playing(1) == 0) Mix_PlayChannel( 1, sound, 0);ShipState = LTHRUST; rotateBy(&ship, -ROTATION);}
+  if (Key(SDL_SCANCODE_UP) || Key(SDLK_w)) {ShipState = UTHRUST; movePlayerXY(-SPEED,UP);}
+  if (Key(SDL_SCANCODE_DOWN) || Key(SDLK_s)) {ShipState = DTHRUST; movePlayerXY(SPEED,DOWN);}
+  if (Key(SDL_SCANCODE_RIGHT) || Key(SDLK_d)) {ShipState = RTHRUST; rotateBy(&ship, ROTATION);}
+  if (Key(SDL_SCANCODE_LEFT) || Key(SDLK_a)) {ShipState = LTHRUST; rotateBy(&ship, -ROTATION);}
   if (!keypressed) {
      ShipState = HALTED;
      if (Mix_Playing(1) != 0) Mix_FadeOutChannel(1,500);	
@@ -588,7 +578,6 @@ void Main_Loop(){
  	}  
        HandleEvents();         
        DrawScreen(ren1);
-       //Delete_Objects();
     }
 } 
 /* ---------------------------------------------- */
