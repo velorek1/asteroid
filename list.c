@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <SDL2/SDL.h>
 #include "list.h"
 
 // create new list element of type OBJECT from the supplied text string

@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <time.h>
+#define SDL_MAIN_HANDLED
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_mixer.h>
@@ -153,6 +154,7 @@ BOOL InitVideo(){
    IMG_Init(IMG_INIT_PNG);
    win1 = SDL_CreateWindow(" > Ast3r0id <", 50,0,SCREEN_W,SCREEN_H,SDL_WINDOW_SHOWN);
    ren1 = SDL_CreateRenderer(win1, -1, 0);
+   SDL_SetWindowBordered(win1,SDL_TRUE);
    return (ren1 != NULL) && (win1 != NULL);
 }
 
