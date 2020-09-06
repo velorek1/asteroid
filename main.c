@@ -108,6 +108,7 @@ void DrawObject(OBJECT Object);
 void DrawDynamicObject(OBJECT *Object);
 void DrawScreen();
 void LoadAsteroids();
+void addAsteroid(int X,int Y,int DIRX, int DIRY, int size);
 //BOOL Animation(int *ticks, double *time, int frames); 
 /* ---------------------------------------------- */
 /* MAIN CODE */ 
@@ -293,9 +294,37 @@ OBJECT p;
   projectiles=addend(projectiles, newelement(p)); 
 } 
 
+void addAsteroid(int X,int Y,int DIRX, int DIRY, int size)
+{
+   OBJECT temp;
+   temp.index = length(&asteroids);
+   temp.DIRX = DIRX;
+   temp.DIRY = DIRY;
+   temp.X = X;
+   temp.Y = Y;
+   temp.DX = temp.X;
+   temp.DY = temp.Y;
+   if (size==0){
+     temp.W = ASTH0;
+     temp.H = ASTW0; 
+     temp.Life = 3;
+   } 
+   if(size==1) {
+     temp.W = ASTH1;
+     temp.H = ASTW1;
+     temp.Life = 2; 
+   }
+   if(size==2){
+     temp.W = ASTH2;
+     temp.H = ASTW2; 
+     temp.Life = 1; 
+   }
+    temp.Angle=0;
+    temp.Img = asteroid;
+    asteroids = addend(asteroids, newelement(temp)); 
+}
 void NewGame(){
-  int i,a;
-  OBJECT temp;
+  int i,a,tDIRX,tDIRY,tSIZE,tX,tY;
 
   if (asteroids != NULL) deleteList(&asteroids);
   
@@ -312,41 +341,22 @@ void NewGame(){
   /* Asteroids */
  
   srand((unsigned) time(&t));
-  for (i=0; i<7; i++){
-    temp.index = i;
+  
+ for (i=0; i<7; i++){
     a = rand() % 2;
-    if (a==0) temp.DIRX = 1;
+    if (a==0) tDIRX = 1;
     else
-      temp.DIRX = -1;
+      tDIRX = -1;
     a = rand() % 2;
-    if (a==0) temp.DIRY = 1;
+    if (a==0) tDIRY = 1;
     else
-      temp.DIRY = -1; 
-    printf("%d:%d\n", temp.DIRX, temp.DIRY);
-    temp.X = rand() % 640;
-    temp.Y = rand() % 480;
-    temp.DX = temp.X;
-    temp.DY = temp.Y;
-    a = rand() % 3;
-    if (a==0){
-     temp.W = ASTH0;
-     temp.H = ASTW0; 
-     temp.Life = 3;
-    } 
-    if(a==1) {
-     temp.W = ASTH2;
-     temp.H = ASTW2;
-     temp.Life = 2; 
-    }
-    if(a==2){
-     temp.W = ASTH1;
-     temp.H = ASTW1; 
-     temp.Life = 3; 
-    }
-    temp.Angle=0;
-    temp.Img = asteroid;
-    asteroids = addend(asteroids, newelement(temp)); 
-   }
+      tDIRY = -1; 
+    tX = rand() % 640;
+    tY = rand() % 480;
+    tSIZE = rand() % 3;
+    addAsteroid(tX,tY,tDIRX, tDIRY, tSIZE);
+    printf("Size : %d\n",tSIZE); 
+ }
    /* Music */
     Mix_PlayMusic(Theme, -1); 
 }
@@ -456,7 +466,18 @@ void moveProjectiles(){
     if (Collision(p->X,p->Y,p->X+p->W,p->Y+p->H,a->X,a->Y,
     a->X+a->W,a->Y+a->H)) {
 	printf("\n Asteroid #%d destroyed: \n",a->index);
-	deleteObject(&asteroids,j,TRUE);
+	if(a->Life == 1 ) deleteObject(&asteroids,j,TRUE);
+	if(a->Life == 2){ 
+	     addAsteroid(a->X, a->Y, 1,1,2);
+	     addAsteroid(a->X, a->Y, -1,-1,2);
+	     deleteObject(&asteroids,j,TRUE);
+	}   
+	if(a->Life == 3){ 
+	     addAsteroid(a->X, a->Y, 1,1,1);
+	     addAsteroid(a->X, a->Y, -1,-1,1);
+	     addAsteroid(a->X, a->Y, 1,-1,1);
+             deleteObject(&asteroids,j,TRUE);
+	} 
 	deleteObject(&projectiles,i,TRUE);
 	bcollision = TRUE;
 	break;
