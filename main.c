@@ -53,7 +53,7 @@ OBJECT ship;
 OBJECT *asteroids;
 OBJECT *projectiles;
 SPRITE shipSprite[9];
-SDL_Surface *background,*asteroid,*projectile;
+SDL_Surface *background,*asteroid,*projectile,*explosionIMG;
 SDL_Event ev;
 SDL_Renderer *ren1;
 SDL_Window *win1;
@@ -63,11 +63,12 @@ BOOL keypressed=FALSE;
 BOOL mouseclicked=FALSE;
 time_t t;
 Mix_Music *Theme;
-Mix_Chunk *sound,*shot;
+Mix_Chunk *sound,*shot, *expsnd, *shield;
 enum SHIPSTATE ShipState;
 int level=0; int lives=MAX_LIFE;
-double PlayerShootTime;
-
+double PlayerShootTime, exptime=0;
+int expticks=0;
+BOOL explosion=FALSE;
 
 /* ---------------------------------------------- */
 /* FUNCTION PROTOTYPES */
@@ -86,6 +87,8 @@ void  CleanMemory();
 BOOL Key(long K);
 void HandleKey(long Sym, BOOL Down);
 void HandleEvents();
+BOOL timer1(int *ticks, double *time, int ms);
+
 /* Game engine */
 
 void  LaunchProjectile(double X, double Y, double DX, double DY, SDL_Surface *Img);
@@ -102,11 +105,12 @@ void  ShootPlayerBullet();
 /* Drawing */
 void Draw(int X, int Y, SDL_Surface *Img);
 void DrawObject(OBJECT Object);
+void DrawAnimation(int X, int Y, int H, int W, int frame, SDL_Surface *Img);
 void DrawDynamicObject(OBJECT *Object);
 void DrawScreen();
 void LoadAsteroids();
 void addAsteroid(int X,int Y,int DIRX, int DIRY, int size);
-//BOOL Animation(int *ticks, double *time, int frames); 
+ 
 /* ---------------------------------------------- */
 /* MAIN CODE */ 
 /* ---------------------------------------------- */
@@ -256,6 +260,9 @@ void LoadAssets(){
   if (shipSprite[8].Img == NULL) {fprintf(stderr, ERR_MSG1);exit(0);}
   
   ship.Img = shipSprite[0].Img;   
+  explosionIMG = IMG_Load("data/pics/exp.png");
+  if (explosionIMG == NULL)  {fprintf(stderr, ERR_MSG1); exit(0);}  
+
   /* Music and Sounds */
   Theme = Mix_LoadMUS("data/snd/theme.ogg");
    if (Theme == NULL)  {fprintf(stderr, ERR_MSG1); exit(0);} 
@@ -266,6 +273,16 @@ void LoadAssets(){
    shot = Mix_LoadWAV("data/snd/shot.wav");
    if (shot == NULL) {fprintf(stderr, ERR_MSG1); exit(0);}    
    Mix_VolumeChunk(shot, MIX_MAX_VOLUME ); 
+
+
+   expsnd = Mix_LoadWAV("data/snd/explosion.wav");
+   if (expsnd == NULL) {fprintf(stderr, ERR_MSG1); exit(0);}    
+   Mix_VolumeChunk(expsnd, MIX_MAX_VOLUME ); 
+
+   shield = Mix_LoadWAV("data/snd/shield.wav");
+   if (shield == NULL) {fprintf(stderr, ERR_MSG1); exit(0);}    
+   Mix_VolumeChunk(shield, MIX_MAX_VOLUME ); 
+
 }
 
 void LaunchProjectile(double X, double Y, double DX, double DY, SDL_Surface *Img){
@@ -368,6 +385,24 @@ void Draw(int X, int Y, SDL_Surface *Img) {
   SDL_DestroyTexture(text);
 }
 
+void DrawAnimation(int X, int Y, int H, int W, int frame, SDL_Surface *Img) {
+  SDL_Rect R, D;
+  SDL_Texture *text;
+  
+  R.x = X;
+  R.y = Y;
+  R.w = H;
+  R.h = W;
+  D.x = H*frame;
+  D.y = 0;
+  D.w = W;
+  D.h = W;
+  text = SDL_CreateTextureFromSurface(ren1,Img);
+  SDL_RenderCopy(ren1, text, &D, &R);
+  SDL_DestroyTexture(text);
+}
+
+
 void DrawDynamicObject(OBJECT *Object){
   SDL_Rect R;
   SDL_Texture *text;
@@ -407,7 +442,7 @@ void DrawScreen() {
  	case RTHRUST: ship.Img = shipSprite[5].Img; break;			        
  	case DAMAGED: a=rand() & 1; ship.Img = shipSprite[a+7].Img; break;			        
     }
-   DrawObject(ship);
+   if (!explosion) DrawObject(ship);
    
    if (asteroids != NULL) {
      for (i=0;i<length(&asteroids);i++){
@@ -421,8 +456,11 @@ void DrawScreen() {
      }
    }
 
-
-   SDL_RenderPresent(ren1);
+   if (explosion == TRUE) {
+	explosion=timer1(&expticks,&exptime,100);
+	DrawAnimation(ship.X,ship.Y,60,60,expticks,explosionIMG); 
+   }  
+ SDL_RenderPresent(ren1);
 }
 
 //Move functions
@@ -510,7 +548,12 @@ void moveAsteroids(){
     	p->DIRY = p->DIRY * -1;
 	ShipState = DAMAGED;
  	lives = lives -1;
-        if(lives == 0) {SDL_Delay(1000);NewGame();}
+      if (Mix_Playing(4) == 0) Mix_PlayChannel(4, shield, 0);
+       if(lives == 0)   {
+                Mix_HaltChannel(-1);
+		explosion = TRUE;
+	}
+
     }
     //Collision with Asteroids
     for (j=0; j<length(&asteroids); j++){
@@ -546,6 +589,24 @@ void ShootPlayerBullet(){
 }
 }
 
+BOOL timer1(int *ticks, double *time, int ms){
+BOOL value;
+ if (SDL_GetTicks() - *time < ms) {
+   value = TRUE;
+   if (Mix_Playing(3) == 0) Mix_PlayChannel(3, expsnd, 0);
+ } else{
+   *time = SDL_GetTicks();
+   if (*ticks < 6) {
+       *ticks = *ticks +1;
+	value = TRUE;
+   }else {
+        *ticks = 0;
+ 	value = FALSE;
+	NewGame();
+	}
+}
+ return value;
+}
 void UpdateGame(){
   //if (Key(SDLK_q)) printf("Q\n");
   if (Key(SDLK_f)) ToggleFullscreen(win1);
