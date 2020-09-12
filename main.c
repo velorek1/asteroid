@@ -35,7 +35,7 @@
 #define MAX_KEY 1000
 #define UP 1
 #define DOWN 0
-#define SPEED 8
+#define SPEED 10
 #define ROTATION 5.5
 //MESSAGES
 #define STS_MSG0 "SDL Graphics loaded successfully.\n"
@@ -66,11 +66,13 @@ Mix_Music *Theme;
 Mix_Chunk *sound,*shot, *expsnd, *shield;
 enum SHIPSTATE ShipState;
 int level=0; int lives=MAX_LIFE;
+int oldX, oldY, oldAngle;
 double PlayerShootTime, timetemp=0;
 int expticks=0;
 BOOL explosion=FALSE;
 BOOL momentum=FALSE;
 BOOL reversed=FALSE;
+BOOL shipstill=FALSE;
 double velocity = SPEED;
 /* ---------------------------------------------- */
 /* FUNCTION PROTOTYPES */
@@ -364,12 +366,15 @@ void NewGame(){
   /* SHIP */ 
   ship.X = 100;
   ship.Y = 100;
+  oldX = ship.X;
+  oldY = ship.Y;
   ship.DX = ship.X;
   ship.DY = ship.Y;
   ship.W = 50;
   ship.H = 70;
   ship.Angle = 0;  
- 
+  oldAngle = ship.Angle;
+  shipstill = TRUE;
   /* Asteroids */
  
   srand((unsigned) time(&t));
@@ -689,13 +694,17 @@ BOOL res;
 
 void UpdateGame(){
   //if (Key(SDLK_q)) printf("Q\n");
+  oldX = ship.X;
+  oldY = ship.Y;
+  oldAngle = ship.Angle;
   if (Key(SDLK_f)) ToggleFullscreen(win1);
   if (Key(SDL_SCANCODE_SPACE)) {ShootPlayerBullet();}
   if (Key(SDL_SCANCODE_UP) || Key(SDLK_w)) {ShipState = UTHRUST; movePlayerXY(-SPEED,UP);}
   if (Key(SDL_SCANCODE_DOWN) || Key(SDLK_s)) {ShipState = DTHRUST; movePlayerXY(SPEED,DOWN);}
   if (Key(SDL_SCANCODE_RIGHT) || Key(SDLK_d)) {ShipState = RTHRUST; rotateBy(&ship, ROTATION);}
   if (Key(SDL_SCANCODE_LEFT) || Key(SDLK_a)) {ShipState = LTHRUST; rotateBy(&ship, -ROTATION);}
-  if (!keypressed) {
+  if (keypressed) momentum = FALSE; 
+  if (shipstill) {
      //inertia/momentum
      if (ShipState == UTHRUST) {momentum = TRUE; reversed = FALSE;}
      if (ShipState == DTHRUST) {momentum = TRUE; reversed = TRUE;}
@@ -706,6 +715,8 @@ void UpdateGame(){
   Ship_Behaviour();
   moveAsteroids();
   moveProjectiles();
+  if (ship.X != oldX || ship.Y != oldY || ship.Angle != oldAngle) shipstill = FALSE;
+  else shipstill = TRUE;
 }
 
 void Main_Loop(){
