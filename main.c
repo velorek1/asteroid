@@ -53,7 +53,7 @@ OBJECT ship;
 OBJECT *asteroids;
 OBJECT *projectiles;
 SPRITE shipSprite[9];
-SDL_Surface *background,*asteroid,*projectile,*explosionIMG;
+SDL_Surface *background,*asteroid,*projectile,*explosionIMG,*debris,*lifebar, *indicators;
 SDL_Event ev;
 SDL_Renderer *ren1;
 SDL_Window *win1;
@@ -66,18 +66,20 @@ Mix_Music *Theme;
 Mix_Chunk *sound,*shot, *expsnd, *shield;
 enum SHIPSTATE ShipState;
 int level=0; int lives=MAX_LIFE;
-double PlayerShootTime, exptime=0;
+double PlayerShootTime, timetemp=0;
 int expticks=0;
 BOOL explosion=FALSE;
-
+BOOL momentum=FALSE;
+BOOL reversed=FALSE;
+double velocity = SPEED;
 /* ---------------------------------------------- */
 /* FUNCTION PROTOTYPES */
 /* ---------------------------------------------- */
 /* Mathematics & Physics */
+BOOL Collision(int AX1, int AY1, int AX2, int AY2, int BX1, int BY1, int BX2, int BY2); 
 double sinD(int degree);
 double cosD(int degree);
-int getSign(int number);
-BOOL Collision(int AX1, int AY1, int AX2, int AY2, int BX1, int BY1, int BX2, int BY2); 
+int randnum(int number);
 /*SDL Related */
 BOOL  InitVideo();
 BOOL  InitAudio();
@@ -88,14 +90,16 @@ BOOL Key(long K);
 void HandleKey(long Sym, BOOL Down);
 void HandleEvents();
 BOOL timer1(int *ticks, double *time, int ms);
+BOOL lerp(double *value, double *time, int ms);
 
 /* Game engine */
 
-void  LaunchProjectile(double X, double Y, double DX, double DY, SDL_Surface *Img);
+void  LaunchProjectile(double X, double Y, double DX, double DY, SDL_Surface *Img, int Life);
 void  LoadAssets();
 void  NewGame();
 void  UpdateGame();
 void  Main_Loop();
+void  LaunchPoof(int X, int Y, SDL_Surface * Img, int life);
 void  movePlayerXY(int speed, int direction);
 void  rotateBy(OBJECT *Object, float D);
 void  Ship_Behaviour();
@@ -143,11 +147,9 @@ double cosD(int degree){
     ret = cos(degree*val);
     return ret;
 }
-int getSign(int number){
-  if (number < 0) 
-    return -1;
-  else
-    return 1;
+int randnum(int number){
+  srand((unsigned) time(&t));
+  return rand() % number;
 }
 
 //SDL Initialization
@@ -239,6 +241,13 @@ void LoadAssets(){
   if (asteroid == NULL)  {fprintf(stderr, ERR_MSG1); exit(0);}  
   projectile = IMG_Load("data/pics/fire1.png");
   if (projectile == NULL)  {fprintf(stderr, ERR_MSG1); exit(0);}  
+  debris = IMG_Load("data/pics/debris.png");
+  if (debris == NULL)  {fprintf(stderr, ERR_MSG1); exit(0);}  
+  lifebar = IMG_Load("data/pics/lifebar.png");
+  if (lifebar == NULL)  {fprintf(stderr, ERR_MSG1); exit(0);}  
+  indicators = IMG_Load("data/pics/indicators.png");
+  if (indicators == NULL)  {fprintf(stderr, ERR_MSG1); exit(0);}  
+
 
   shipSprite[0].Img = IMG_Load("data/pics/ship.png");
   if (shipSprite[0].Img == NULL) {fprintf(stderr, ERR_MSG1);exit(0);}   
@@ -285,7 +294,7 @@ void LoadAssets(){
 
 }
 
-void LaunchProjectile(double X, double Y, double DX, double DY, SDL_Surface *Img){
+void LaunchProjectile(double X, double Y, double DX, double DY, SDL_Surface *Img, int Life){
 OBJECT p;
   if (projectiles == NULL) 
     p.index = 0;
@@ -296,12 +305,24 @@ OBJECT p;
   p.Angle = ship.Angle;
   p.W = 16;
   p.H = 16;
-  p.FX = (ship.X+(ship.W-10)/2) + ((cosD(p.Angle) *-1) - (sinD(p.Angle) * 40)*-1);
-  p.FY = (ship.Y+(ship.H-30)/2) + (sinD(p.Angle) * -1) + ((cosD(p.Angle) * 40*-1));
-  p.DX = DX;
-  p.DY = DY;
-  p.X = round(p.FX);
-  p.Y = round(p.FY);
+  if (Life == -1) {
+   //ship projectile
+    p.FX = (ship.X+(ship.W-10)/2) + ((cosD(p.Angle) *-1) - (sinD(p.Angle) * 40)*-1);
+    p.FY = (ship.Y+(ship.H-30)/2) + (sinD(p.Angle) * -1) + ((cosD(p.Angle) * 40*-1));
+    p.DX = DX;
+    p.DY = DY;
+    p.X = round(p.FX);
+    p.Y = round(p.FY);
+  } else{
+   //poof explosion animation
+   p.X = X;
+   p.Y = Y;
+   p.FX = X;
+   p.FY = Y;
+   p.DX = DX;
+   p.DY = DY;
+  }
+  p.Life = Life;
   projectiles=addend(projectiles, newelement(p)); 
 } 
 
@@ -429,7 +450,11 @@ void DrawObject(OBJECT Object){
   SDL_RenderCopyEx(ren1, text, NULL, &R, Object.Angle,NULL, SDL_FLIP_NONE);
   SDL_DestroyTexture(text);
 }
-
+void DrawLife(){
+  int i;
+  Draw(1,1, indicators);
+  for (i=20; i<(lives-1)+20; i++) Draw(i*2+1,3,lifebar);
+}
 void DrawScreen() {
    int i, a;
    SDL_RenderClear(ren1);
@@ -457,13 +482,25 @@ void DrawScreen() {
    }
 
    if (explosion == TRUE) {
-	explosion=timer1(&expticks,&exptime,100);
+	explosion=timer1(&expticks,&timetemp,100);
 	DrawAnimation(ship.X,ship.Y,60,60,expticks,explosionIMG); 
-   }  
+   }
+ DrawLife();  
  SDL_RenderPresent(ren1);
 }
 
-//Move functions
+//Move functions - UPDATE GAME
+void LaunchPoof(int X, int Y, SDL_Surface * Img, int life)
+{
+      LaunchProjectile(X, Y, -1, -0.4, Img, life + randnum(10));
+      LaunchProjectile(X, Y, -0.2, -0.7, Img,life+ randnum(10));
+      LaunchProjectile(X, Y, 0.3, -0.6, Img,life+ randnum(10));
+      LaunchProjectile(X, Y, 0.96, -0.3, Img,life+ randnum(10));
+      LaunchProjectile(X, Y, -0.8, 0.5, Img,life+ randnum(10));
+      LaunchProjectile(X, Y, -0.3, 0.65, Img,life+ randnum(10));
+      LaunchProjectile(X, Y, 0.34, 0.67, Img,life+ randnum(10));
+      LaunchProjectile(X, Y, 0.93, 0.31, Img,life+ randnum(10));
+}
 
 void movePlayerXY(int speed, int direction){
    if (Mix_Playing(1) == 0) Mix_PlayChannel( 1, sound, 0); 
@@ -485,7 +522,8 @@ void moveProjectiles(){
     p->X = round(p->FX);
     p->Y = round(p->FY);
     //Delete projectiles which get off the screen
-    if (p->Y < -10 || p->Y > SCREEN_H + 10 || p-> X < -10 || p-> X > SCREEN_W + 10) {
+    if (p->Life != -1) p->Life = p->Life -1;
+    if (p->Y < -10 || p->Y > SCREEN_H + 10 || p-> X < -10 || p-> X > SCREEN_W + 10 || p->Life == 0) {
 	deleteObject(&projectiles,0,TRUE);
 	break;
     }
@@ -495,7 +533,10 @@ void moveProjectiles(){
     //Collision with Projectile
     if (Collision(p->X,p->Y,p->X+p->W,p->Y+p->H,a->X,a->Y,
     a->X+a->W,a->Y+a->H)) {
-	if(a->Life == 1 ) deleteObject(&asteroids,j,TRUE);
+	if(a->Life == 1 ) {
+         LaunchPoof(a->X, a->Y,debris,30); 
+         deleteObject(&asteroids,j,TRUE);
+         }
 	if(a->Life == 2){ 
 	     addAsteroid(a->X, a->Y, 1,1,2);
 	     addAsteroid(a->X, a->Y, -1,-1,2);
@@ -528,6 +569,14 @@ void rotateBy(OBJECT *Object, float D){
 
 
 void Ship_Behaviour(){
+  if (momentum == TRUE) {
+	momentum=lerp(&velocity,&timetemp,100);
+        if (reversed == FALSE) movePlayerXY(-velocity,UP);
+	else movePlayerXY(velocity,DOWN);
+   } else
+  {
+    velocity = SPEED;
+  }
   if (ship.Y < -10) {ship.Y = SCREEN_H; ship.DY = SCREEN_H;}
   if (ship.Y > SCREEN_H+10) {ship.Y = 0; ship.DY = 0;}
   if (ship.X > SCREEN_W + 10) {ship.X = 0; ship.DX = 0;}
@@ -550,6 +599,7 @@ void moveAsteroids(){
  	lives = lives -1;
       if (Mix_Playing(4) == 0) Mix_PlayChannel(4, shield, 0);
        if(lives == 0)   {
+                //Game Over
                 Mix_HaltChannel(-1);
 		explosion = TRUE;
 	}
@@ -585,8 +635,9 @@ void ShootPlayerBullet(){
  } else{
    PlayerShootTime = SDL_GetTicks();
    if (Mix_Playing(2) == 0) Mix_PlayChannel(2, shot, 0);
-   LaunchProjectile(ship.X+16, ship.Y-2, 10,10, projectile);
+   LaunchProjectile(ship.X+16, ship.Y-2, 10,10, projectile,-1);
 }
+
 }
 
 BOOL timer1(int *ticks, double *time, int ms){
@@ -607,6 +658,25 @@ BOOL value;
 }
  return value;
 }
+
+BOOL lerp(double *value, double *time, int ms){
+BOOL res;
+ if (SDL_GetTicks() - *time < ms) {
+   res = TRUE;
+ } else{
+   *time = SDL_GetTicks();
+   if (*value > 0) {
+       *value = *value -1;
+	res = TRUE;
+   }else {
+        *value = 0;
+ 	value = FALSE;
+	}
+}
+ return res;
+}
+
+
 void UpdateGame(){
   //if (Key(SDLK_q)) printf("Q\n");
   if (Key(SDLK_f)) ToggleFullscreen(win1);
@@ -616,6 +686,9 @@ void UpdateGame(){
   if (Key(SDL_SCANCODE_RIGHT) || Key(SDLK_d)) {ShipState = RTHRUST; rotateBy(&ship, ROTATION);}
   if (Key(SDL_SCANCODE_LEFT) || Key(SDLK_a)) {ShipState = LTHRUST; rotateBy(&ship, -ROTATION);}
   if (!keypressed) {
+     //inertia/momentum
+     if (ShipState == UTHRUST) {momentum = TRUE; reversed = FALSE;}
+     if (ShipState == DTHRUST) {momentum = TRUE; reversed = TRUE;}
      ShipState = HALTED;
      if (Mix_Playing(1) != 0) Mix_FadeOutChannel(1,500);	
   }
@@ -638,7 +711,7 @@ void Main_Loop(){
           LastTime = LastTime + 30;
  	}  
        HandleEvents();         
-       DrawScreen(ren1);
+       DrawScreen();
     }
 } 
 /* ---------------------------------------------- */
