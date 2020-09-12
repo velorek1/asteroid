@@ -148,7 +148,7 @@ double cosD(int degree){
     return ret;
 }
 int randnum(int number){
-  srand((unsigned) time(&t));
+  //srand((unsigned) time(&t));
   return rand() % number;
 }
 
@@ -492,14 +492,14 @@ void DrawScreen() {
 //Move functions - UPDATE GAME
 void LaunchPoof(int X, int Y, SDL_Surface * Img, int life)
 {
-      LaunchProjectile(X, Y, -1, -0.4, Img, life + randnum(10));
-      LaunchProjectile(X, Y, -0.2, -0.7, Img,life+ randnum(10));
-      LaunchProjectile(X, Y, 0.3, -0.6, Img,life+ randnum(10));
-      LaunchProjectile(X, Y, 0.96, -0.3, Img,life+ randnum(10));
-      LaunchProjectile(X, Y, -0.8, 0.5, Img,life+ randnum(10));
-      LaunchProjectile(X, Y, -0.3, 0.65, Img,life+ randnum(10));
-      LaunchProjectile(X, Y, 0.34, 0.67, Img,life+ randnum(10));
-      LaunchProjectile(X, Y, 0.93, 0.31, Img,life+ randnum(10));
+      LaunchProjectile(X, Y, -1, -0.4, Img, life);
+      LaunchProjectile(X, Y, -0.2, -0.7, Img,life);
+      LaunchProjectile(X, Y, 0.3, -0.6, Img,life);
+      LaunchProjectile(X, Y, 0.96, -0.3, Img,life);
+      LaunchProjectile(X, Y, -0.8, 0.5, Img,life);
+      LaunchProjectile(X, Y, -0.3, 0.65, Img,life);
+      LaunchProjectile(X, Y, 0.34, 0.67, Img,life);
+      LaunchProjectile(X, Y, 0.93, 0.31, Img,life);
 }
 
 void movePlayerXY(int speed, int direction){
@@ -517,15 +517,24 @@ void moveProjectiles(){
  for (i=0; i<length(&projectiles);i++){
     p = getObject(projectiles,i);
     //Vector rotation
+    //ship projectiles
+    if (p->Life == -1){
     p->FX = p->FX + (p->DX*sinD(p->Angle)); 
     p->FY = p->FY + (p->DY*cosD(p->Angle))*-1; 
     p->X = round(p->FX);
     p->Y = round(p->FY);
+    } else
+    {//poof projectiles
+     p->FX = p->FX + p->DX;
+     p->FY = p->FY + p->DY;
+     p->X = round(p->FX);
+     p->Y = round(p->FY); 
+    }
     //Delete projectiles which get off the screen
     if (p->Life != -1) p->Life = p->Life -1;
     if (p->Y < -10 || p->Y > SCREEN_H + 10 || p-> X < -10 || p-> X > SCREEN_W + 10 || p->Life == 0) {
 	deleteObject(&projectiles,0,TRUE);
-	break;
+	continue;
     }
    //Collision with Asteroids.
   for (j=0; j<length(&asteroids); j++){
@@ -534,8 +543,9 @@ void moveProjectiles(){
     if (Collision(p->X,p->Y,p->X+p->W,p->Y+p->H,a->X,a->Y,
     a->X+a->W,a->Y+a->H)) {
 	if(a->Life == 1 ) {
-         LaunchPoof(a->X, a->Y,debris,30); 
          deleteObject(&asteroids,j,TRUE);
+         LaunchPoof(a->X, a->Y,debris,30);
+	 continue; 
          }
 	if(a->Life == 2){ 
 	     addAsteroid(a->X, a->Y, 1,1,2);
