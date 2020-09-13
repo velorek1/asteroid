@@ -53,7 +53,7 @@ OBJECT ship;
 OBJECT *asteroids;
 OBJECT *projectiles;
 SPRITE shipSprite[9];
-SDL_Surface *background,*asteroid,*projectile,*explosionIMG,*debris,*lifebar, *indicators;
+SDL_Surface *background,*asteroid,*projectile,*explosionIMG,*debris,*indicators;
 SDL_Event ev;
 SDL_Renderer *ren1;
 SDL_Window *win1;
@@ -158,7 +158,12 @@ int randnum(int number){
 BOOL InitVideo(){
    SDL_Init(SDL_INIT_VIDEO);
    IMG_Init(IMG_INIT_PNG);
+#ifdef __linux__ 
    win1 = SDL_CreateWindow(" > Ast3r0id <", 50,0,SCREEN_W,SCREEN_H,SDL_WINDOW_SHOWN);
+#elif _WIN32
+   win1 = SDL_CreateWindow(" > Ast3r0id <", 50,0,SCREEN_W,SCREEN_H,SDL_WINDOW_FULLSCREEN);
+#else
+#endif
    ren1 = SDL_CreateRenderer(win1, -1, 0);
    SDL_SetWindowBordered(win1,SDL_TRUE);
    return (ren1 != NULL) && (win1 != NULL);
@@ -245,8 +250,6 @@ void LoadAssets(){
   if (projectile == NULL)  {fprintf(stderr, ERR_MSG1); exit(0);}  
   debris = IMG_Load("data/pics/debris.png");
   if (debris == NULL)  {fprintf(stderr, ERR_MSG1); exit(0);}  
-  lifebar = IMG_Load("data/pics/lifebar.png");
-  if (lifebar == NULL)  {fprintf(stderr, ERR_MSG1); exit(0);}  
   indicators = IMG_Load("data/pics/indicators.png");
   if (indicators == NULL)  {fprintf(stderr, ERR_MSG1); exit(0);}  
 
@@ -456,9 +459,17 @@ void DrawObject(OBJECT Object){
   SDL_DestroyTexture(text);
 }
 void DrawLife(){
-  int i;
+  SDL_Rect rect;
+  rect.x = 45;
+  rect.y = 3;
+  rect.w = lives;
+  rect.h = 10;
+  if(lives>0) {
+    SDL_SetRenderDrawColor(ren1, 255,69,0,0);
+    SDL_RenderDrawRect(ren1, &rect);
+    SDL_RenderFillRect(ren1, &rect);
+  }
   Draw(1,1, indicators);
-  for (i=20; i<(lives-1)+20; i++) Draw(i*2+1,3,lifebar);
 }
 void DrawScreen() {
    int i, a;
@@ -546,7 +557,7 @@ void moveProjectiles(){
      a=getObject(asteroids,j);
     //Collision with Projectile
     if (Collision(p->X,p->Y,p->X+p->W,p->Y+p->H,a->X,a->Y,
-    a->X+a->W,a->Y+a->H)) {
+    a->X+a->W,a->Y+a->H) && p->Life == -1) {
 	if(a->Life == 1 ) {
          deleteObject(&asteroids,j,TRUE);
          LaunchPoof(a->X, a->Y,debris,30);
