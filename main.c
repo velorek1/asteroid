@@ -19,6 +19,7 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_mixer.h>
+#include <SDL2/SDL_ttf.h>
 #include "list.h" 
 
 #define PI 3.14159265
@@ -48,6 +49,7 @@ typedef struct _sprite{
 } SPRITE;
 
 enum SHIPSTATE{HALTED, UTHRUST, DTHRUST, LTHRUST, RTHRUST, DAMAGED};
+
 /* GLOBALS */
 OBJECT ship;
 OBJECT *asteroids;
@@ -67,6 +69,8 @@ Mix_Chunk *sound,*shot, *expsnd, *shield;
 enum SHIPSTATE ShipState;
 int level=0; int lives=MAX_LIFE;
 int oldX, oldY, oldAngle;
+int points = 0;
+int currentLevel = 1;
 double PlayerShootTime, timetemp=0;
 int expticks=0;
 BOOL explosion=FALSE;
@@ -98,11 +102,11 @@ BOOL lerp(double *value, double *time, int ms);
 
 void  LaunchProjectile(double X, double Y, double DX, double DY, SDL_Surface *Img, int Life);
 void  LoadAssets();
-void  NewGame();
+void  NewGame(int currentLevel);
 void  UpdateGame();
 void  Main_Loop();
 void  LaunchPoof(int X, int Y, SDL_Surface * Img, int life);
-void  movePlayerXY(int speed, int direction);
+void  movePlayerXY(int speed);
 void  rotateBy(OBJECT *Object, float D);
 void  Ship_Behaviour();
 void  moveAsteroids();
@@ -114,24 +118,30 @@ void DrawObject(OBJECT Object);
 void DrawAnimation(int X, int Y, int H, int W, int frame, SDL_Surface *Img);
 void DrawDynamicObject(OBJECT *Object);
 void DrawScreen();
+void DrawText(char* string,int size, int x, int y,int fR, int fG, int fB,int bR, int bG, int bB, BOOL transparent);
 void LoadAsteroids();
 void addAsteroid(int X,int Y,int DIRX, int DIRY, int size);
  
 /* ---------------------------------------------- */
-/* MAIN CODE */ 
+/* MAIN - ENTRY POINT */ 
 /* ---------------------------------------------- */
-int main(int argc, char ** argv){
+int main(){
   InitVideo();
   InitAudio();
+  TTF_Init();
   LoadAssets();
-  NewGame();
+  NewGame(currentLevel);
   Main_Loop(); //UPDATE EVENTS AND DRAW TO SCREEN
   CleanMemory();
   return 0;
 }
 
 /* FUNCTIONS */
+
+/* ==========================================================*/
 //Mathematics and Physics
+/* ==========================================================*/
+
 BOOL Collision(int AX1, int AY1, int AX2, int AY2, int BX1, int BY1, int BX2, int BY2){
   return (AX1 < BX1 + (BX2-BX1)) && (AX1 + (AX2-AX1) > BX1) && (AY1 < BY1 + (BY2-BY1)) && (AY1 + (AY2-AY1) > BY1);
 }
@@ -154,7 +164,10 @@ int randnum(int number){
   return rand() % number;
 }
 
+/* ==========================================================*/
 //SDL Initialization
+/* ==========================================================*/
+
 BOOL InitVideo(){
    SDL_Init(SDL_INIT_VIDEO);
    IMG_Init(IMG_INIT_PNG);
@@ -184,16 +197,9 @@ void ToggleFullscreen(SDL_Window* Window) {
     SDL_ShowCursor(IsFullscreen);
 }
 
-void CleanMemory(){
-  if (asteroids != NULL) deleteList(&asteroids);
-  SDL_DestroyRenderer(ren1);
-  SDL_DestroyWindow(win1);
-  Mix_Quit();
-  IMG_Quit(); 
-  SDL_Quit();
-} 
-
+/* ==========================================================*/
 //Events Functions
+/* ==========================================================*/
 
 BOOL Key(long K){
   if ((K>= 0) && (K <= MAX_KEY)) 
@@ -238,7 +244,9 @@ void HandleEvents(){
   }
 }
 
+/* ==========================================================*/
 // Game Engine
+/* ==========================================================*/
 
 void LoadAssets(){
   /* Images */
@@ -360,7 +368,8 @@ void addAsteroid(int X,int Y,int DIRX, int DIRY, int size)
     temp.Img = asteroid;
     asteroids = addend(asteroids, newelement(temp)); 
 }
-void NewGame(){
+
+void NewGame(int currentLevel){
   int i,a,tDIRX,tDIRY,tSIZE,tX,tY;
 
   if (asteroids != NULL) deleteList(&asteroids);
@@ -382,7 +391,7 @@ void NewGame(){
  
   srand((unsigned) time(&t));
   
- for (i=0; i<7; i++){
+ for (i=0; i<3*currentLevel; i++){
     a = rand() % 2;
     if (a==0) tDIRX = 1;
     else
@@ -400,7 +409,21 @@ void NewGame(){
     Mix_PlayMusic(Theme, -1); 
 }
 
+void CleanMemory(){
+  if (asteroids != NULL) deleteList(&asteroids);
+  SDL_DestroyRenderer(ren1);
+  SDL_DestroyWindow(win1);
+  Mix_Quit();
+  IMG_Quit();
+  TTF_Quit(); 
+  SDL_Quit();
+} 
+
+
+/* ==========================================================*/
 // Drawing Functions 
+/* ==========================================================*/
+
 void Draw(int X, int Y, SDL_Surface *Img) {
   SDL_Rect R;
   SDL_Texture *text;
@@ -471,8 +494,44 @@ void DrawLife(){
   }
   Draw(1,1, indicators);
 }
+void DrawText(char* string,int size, int x, int y,int fR, int fG, int fB,int bR, int bG, int bB, BOOL transparent)
+{
+
+//if (TTF_Init == NULL) exit(0);
+
+TTF_Font* font = TTF_OpenFont("data/fonts/FreeMonoBold.ttf", size);
+
+SDL_Color foregroundColor = { fR, fG, fB, 0 };
+SDL_Color backgroundColor = { bR, bG, bB, 0 };
+SDL_Surface* textSurface; 
+
+if (transparent == TRUE)
+   textSurface = TTF_RenderText_Blended(font, string, foregroundColor);
+else
+   textSurface = TTF_RenderText_Shaded(font, string, foregroundColor,backgroundColor);
+
+SDL_Texture* texture1 = SDL_CreateTextureFromSurface(ren1, textSurface);
+
+SDL_Rect textLocation = { x, y, textSurface->w, textSurface->h };
+
+SDL_RenderCopy(ren1, texture1, NULL, &textLocation);
+
+SDL_FreeSurface(textSurface);
+SDL_DestroyTexture(texture1);
+
+TTF_CloseFont(font);
+
+}
+
+/* ==========================================================*/
+// FINAL SCREEN COMPOSITION = DRAW SCREEN
+/* ==========================================================*/
+
 void DrawScreen() {
    int i, a;
+   char pointstext[12];
+   char levelstr[12];
+
    SDL_RenderClear(ren1);
    Draw(0,0,background);
    switch (ShipState){
@@ -502,10 +561,17 @@ void DrawScreen() {
 	DrawAnimation(ship.X,ship.Y,60,60,expticks,explosionIMG); 
    }
  DrawLife();  
+ sprintf(pointstext, "%d", points);
+ DrawText(pointstext, 13, 70,15, 255,255,255, 0, 0, 0,TRUE);
+ sprintf(levelstr, "LEVEL: %d", currentLevel);
+ DrawText(levelstr, 15, 550,2, 255,0,0, 0, 0, 0,TRUE);
  SDL_RenderPresent(ren1);
 }
 
+/* ==========================================================*/
 //Move functions - UPDATE GAME
+/* ==========================================================*/
+
 void LaunchPoof(int X, int Y, SDL_Surface * Img, int life)
 {
       LaunchProjectile(X, Y, -1, -0.4, Img, life);
@@ -518,7 +584,7 @@ void LaunchPoof(int X, int Y, SDL_Surface * Img, int life)
       LaunchProjectile(X, Y, 0.93, 0.31, Img,life);
 }
 
-void movePlayerXY(int speed, int direction){
+void movePlayerXY(int speed){
    if (Mix_Playing(1) == 0) Mix_PlayChannel( 1, sound, 0); 
    ship.DX = ship.DX + (speed*sinD(ship.Angle))*-1; 
    ship.DY = ship.DY + (speed*cosD(ship.Angle)); 
@@ -560,18 +626,21 @@ void moveProjectiles(){
     a->X+a->W,a->Y+a->H) && p->Life == -1) {
 	if(a->Life == 1 ) {
          deleteObject(&asteroids,j,TRUE);
-         LaunchPoof(a->X, a->Y,debris,30);
+         LaunchPoof(a->X, a->Y,debris,10);
+	 if (p->Img != debris) points = points + 1;
 	 continue; 
          }
 	if(a->Life == 2){ 
 	     addAsteroid(a->X, a->Y, 1,1,2);
 	     addAsteroid(a->X, a->Y, -1,-1,2);
 	     deleteObject(&asteroids,j,TRUE);
+	     if (p->Img != debris) points = points + 2;
 	}   
 	if(a->Life == 3){ 
 	     addAsteroid(a->X, a->Y, 1,1,1);
 	     addAsteroid(a->X, a->Y, -1,-1,1);
 	     addAsteroid(a->X, a->Y, 1,-1,1);
+	     if (p->Img != debris)  points = points + 3;
              deleteObject(&asteroids,j,TRUE);
 	} 
 	deleteObject(&projectiles,i,TRUE);
@@ -585,7 +654,7 @@ void moveProjectiles(){
 void rotateBy(OBJECT *Object, float D){
    float temp;
    if (Mix_Playing(1) == 0) Mix_PlayChannel( 1, sound, 0);
-   if(abs(Object->Angle + D) < 181) {
+   if(fabs(Object->Angle + D) < 181) {
      temp = Object->Angle + D;
      Object->Angle = round(temp);
    } else{
@@ -597,8 +666,8 @@ void rotateBy(OBJECT *Object, float D){
 void Ship_Behaviour(){
   if (momentum == TRUE) {
 	momentum=lerp(&velocity,&timetemp,100);
-        if (reversed == FALSE) movePlayerXY(-velocity,UP);
-	else movePlayerXY(velocity,DOWN);
+        if (reversed == FALSE) movePlayerXY(-velocity);
+	else movePlayerXY(velocity);
    } else
   {
     velocity = SPEED;
@@ -628,6 +697,7 @@ void moveAsteroids(){
                 //Game Over
                 Mix_HaltChannel(-1);
 		explosion = TRUE;
+		points = 0;
 	}
 
     }
@@ -652,7 +722,15 @@ void moveAsteroids(){
     if (p->Y > SCREEN_H + 10) {p->Y = 0; p->DY = 0;}
     if (p->X > SCREEN_W + 10) {p->X = 0; p->DX = 0;}
     if (p->X < -10) {p->X = SCREEN_W; p->DX = SCREEN_W;}
-  } 
+  }
+  //LEVEL ACCOMPLISH - NEW GAME 
+   if(length(&asteroids) == 0)   {
+                //Game Over
+                Mix_HaltChannel(-1);
+		SDL_Delay(1000);
+		currentLevel++;
+		NewGame(currentLevel);
+    }
 }
 
 void ShootPlayerBullet(){
@@ -665,6 +743,10 @@ void ShootPlayerBullet(){
 }
 
 }
+
+/* ==========================================================*/
+// TIMERS
+/* ==========================================================*/
 
 BOOL timer1(int *ticks, double *time, int ms){
 BOOL value;
@@ -679,7 +761,8 @@ BOOL value;
    }else {
         *ticks = 0;
  	value = FALSE;
-	NewGame();
+	currentLevel = 1;
+	NewGame(currentLevel);
 	}
 }
  return value;
@@ -703,6 +786,10 @@ BOOL res;
 }
 
 
+/* ==========================================================*/
+// FINAL UPDATE COMPOSITION
+/* ==========================================================*/
+
 void UpdateGame(){
   //if (Key(SDLK_q)) printf("Q\n");
   oldX = ship.X;
@@ -710,8 +797,8 @@ void UpdateGame(){
   oldAngle = ship.Angle;
   if (Key(SDLK_f)) ToggleFullscreen(win1);
   if (Key(SDL_SCANCODE_SPACE)) {ShootPlayerBullet();}
-  if (Key(SDL_SCANCODE_UP) || Key(SDLK_w)) {ShipState = UTHRUST; movePlayerXY(-SPEED,UP);}
-  if (Key(SDL_SCANCODE_DOWN) || Key(SDLK_s)) {ShipState = DTHRUST; movePlayerXY(SPEED,DOWN);}
+  if (Key(SDL_SCANCODE_UP) || Key(SDLK_w)) {ShipState = UTHRUST; movePlayerXY(-SPEED);}
+  if (Key(SDL_SCANCODE_DOWN) || Key(SDLK_s)) {ShipState = DTHRUST; movePlayerXY(SPEED);}
   if (Key(SDL_SCANCODE_RIGHT) || Key(SDLK_d)) {ShipState = RTHRUST; rotateBy(&ship, ROTATION);}
   if (Key(SDL_SCANCODE_LEFT) || Key(SDLK_a)) {ShipState = LTHRUST; rotateBy(&ship, -ROTATION);}
   if (keypressed) momentum = FALSE; 
@@ -730,6 +817,9 @@ void UpdateGame(){
   else shipstill = TRUE;
 }
 
+/* ==========================================================*/
+// MAIN LOOP HERE
+/* ==========================================================*/
 void Main_Loop(){
 /* Update + HandleEvents - Draw */
   unsigned int LastTime, CurrentTime;

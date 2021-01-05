@@ -111,6 +111,7 @@ OBJECT *delelement(OBJECT *head, int index)
 	   }
 	   prev = p;	
 	}
+  return NULL;
 }
 /* addfront: add new OBJECT to front of list  */
 /* example usage: start = (addfront(start, newelement("burgers")); */
