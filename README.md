@@ -1,5 +1,5 @@
 # asteroid
-Classic Asteroid Game coded with SDL2 in pure C
+Classic Asteroid Game coded with SDL2 in C
 * Remember to install GCC and SDL2 libraries to compile.
 * MIT LICENSE added
 
