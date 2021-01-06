@@ -615,7 +615,7 @@ void moveProjectiles(){
     //Delete projectiles which get off the screen
     if (p->Life != -1) p->Life = p->Life -1;
     if (p->Y < -10 || p->Y > SCREEN_H + 10 || p-> X < -10 || p-> X > SCREEN_W + 10 || p->Life == 0) {
-	deleteObject(&projectiles,0,TRUE);
+	deleteObject(&projectiles,i,TRUE);
 	continue;
     }
    //Collision with Asteroids.
@@ -727,6 +727,8 @@ void moveAsteroids(){
    if(length(&asteroids) == 0)   {
                 //Game Over
                 Mix_HaltChannel(-1);
+		//delete remaining projectiles
+		deleteList(&projectiles);
 		SDL_Delay(1000);
 		currentLevel++;
 		NewGame(currentLevel);
