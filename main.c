@@ -781,7 +781,7 @@ BOOL res;
 	res = TRUE;
    }else {
         *value = 0;
- 	value = FALSE;
+ 	res = FALSE;
 	}
 }
  return res;
