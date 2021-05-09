@@ -9,7 +9,8 @@
 /* [Authors of Assets]		      				      */
 /* - Ship: [Seki]from cleanpng.com    				      */
 /* - Asteroid:  pngwave.com	      				      */
-/* - Theme: [Jan125] opengameart.org  				      */
+/* - Theme: [Jan125] opengameart.org                                  */
+/* - Crash : [freesound]        				      */
 /* *****************************************************************  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,7 +37,7 @@
 #define MAX_KEY 1000
 #define UP 1
 #define DOWN 0
-#define SPEED 10
+#define SPEED 12
 #define ROTATION 5.5
 //MESSAGES
 #define STS_MSG0 "SDL Graphics loaded successfully.\n"
@@ -65,7 +66,7 @@ BOOL keypressed=FALSE;
 BOOL mouseclicked=FALSE;
 time_t t;
 Mix_Music *Theme;
-Mix_Chunk *sound,*shot, *expsnd, *shield;
+Mix_Chunk *sound,*shot, *expsnd, *shield, *crash=NULL;
 enum SHIPSTATE ShipState;
 int level=0; int lives=MAX_LIFE;
 int oldX, oldY, oldAngle;
@@ -304,6 +305,11 @@ void LoadAssets(){
    shield = Mix_LoadWAV("data/snd/shield.wav");
    if (shield == NULL) {fprintf(stderr, ERR_MSG1); exit(0);}    
    Mix_VolumeChunk(shield, MIX_MAX_VOLUME ); 
+
+   crash = Mix_LoadWAV("data/snd/crash.wav");
+   if (crash == NULL) {fprintf(stderr, ERR_MSG1); exit(0);}    
+   Mix_VolumeChunk(crash, MIX_MAX_VOLUME ); 
+
 
 }
 
@@ -624,6 +630,7 @@ void moveProjectiles(){
     //Collision with Projectile
     if (Collision(p->X,p->Y,p->X+p->W,p->Y+p->H,a->X,a->Y,
     a->X+a->W,a->Y+a->H) && p->Life == -1) {
+       Mix_PlayChannel( 5, crash, 0); 
 	if(a->Life == 1 ) {
          deleteObject(&asteroids,j,TRUE);
          LaunchPoof(a->X, a->Y,debris,10);
@@ -681,7 +688,7 @@ void Ship_Behaviour(){
 void moveAsteroids(){
 
  int i,j;
- OBJECT *p;
+ OBJECT *p,*q;
   
    for (i=0; i<length(&asteroids); i++){
      p=getObject(asteroids,i);
@@ -703,9 +710,10 @@ void moveAsteroids(){
     }
     //Collision with Asteroids
     for (j=0; j<length(&asteroids); j++){
+     q=getObject(asteroids,j);
       if (j!=i){
         if (Collision(p->X,p->Y+5,p->X+p->W-5,p->Y+p->H-5,
-	p->X,p->Y,p->X+p->W,p->Y+p->H)) {
+	q->X,q->Y,q->X+q->W,q->Y+q->H)) {
             p->DIRX = p->DIRX * -1;
     	    p->DIRY = p->DIRY * -1;
             p->DIRX = p->DIRX * -1;
@@ -736,12 +744,12 @@ void moveAsteroids(){
 }
 
 void ShootPlayerBullet(){
- if (SDL_GetTicks() - PlayerShootTime < 200) {
+ if (SDL_GetTicks() - PlayerShootTime < 100) {
    //Do nothing
  } else{
    PlayerShootTime = SDL_GetTicks();
-   if (Mix_Playing(2) == 0) Mix_PlayChannel(2, shot, 0);
-   LaunchProjectile(ship.X+16, ship.Y-2, 10,10, projectile,-1);
+   Mix_PlayChannel(2, shot, 0);
+   LaunchProjectile(ship.X+16, ship.Y-2, 20,20, projectile,-1);
 }
 
 }
