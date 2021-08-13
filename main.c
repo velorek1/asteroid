@@ -10,7 +10,8 @@
 /* - Ship: [Seki]from cleanpng.com    				      */
 /* - Asteroid:  pngwave.com	      				      */
 /* - Theme: [Jan125] opengameart.org                                  */
-/* - Crash : [freesound]        				      */
+/* - Crash : [freesound]                                              */
+/* - Intro : https://mixkit.co/free-sound-effects/intro/    	      */
 /* *****************************************************************  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -66,7 +67,7 @@ BOOL keypressed=FALSE;
 BOOL mouseclicked=FALSE;
 time_t t;
 Mix_Music *Theme;
-Mix_Chunk *sound,*shot, *expsnd, *shield, *crash=NULL;
+Mix_Chunk *sound, *intro, *shot, *expsnd, *shield, *crash=NULL;
 enum SHIPSTATE ShipState;
 int level=0; int lives=MAX_LIFE;
 int oldX, oldY, oldAngle;
@@ -79,6 +80,7 @@ BOOL momentum=FALSE;
 BOOL reversed=FALSE;
 BOOL shipstill=FALSE;
 double velocity = SPEED;
+int bestScore = 0;
 /* ---------------------------------------------- */
 /* FUNCTION PROTOTYPES */
 /* ---------------------------------------------- */
@@ -103,6 +105,7 @@ BOOL lerp(double *value, double *time, int ms);
 
 void  LaunchProjectile(double X, double Y, double DX, double DY, SDL_Surface *Img, int Life);
 void  LoadAssets();
+void  Intro();
 void  NewGame(int currentLevel);
 void  UpdateGame();
 void  Main_Loop();
@@ -131,6 +134,7 @@ int main(){
   InitAudio();
   TTF_Init();
   LoadAssets();
+  Intro();
   NewGame(currentLevel);
   Main_Loop(); //UPDATE EVENTS AND DRAW TO SCREEN
   CleanMemory();
@@ -232,6 +236,7 @@ void HandleEvents(){
       keypressed = TRUE;
       HandleKey(e.key.keysym.sym, TRUE);
     }
+
     if (e.type == SDL_MOUSEBUTTONDOWN){
       mouseclicked = TRUE;
     }
@@ -287,8 +292,13 @@ void LoadAssets(){
   if (explosionIMG == NULL)  {fprintf(stderr, ERR_MSG1); exit(0);}  
 
   /* Music and Sounds */
-  Theme = Mix_LoadMUS("data/snd/theme.ogg");
+   Theme = Mix_LoadMUS("data/snd/theme.ogg");
    if (Theme == NULL)  {fprintf(stderr, ERR_MSG1); exit(0);} 
+   
+   intro = Mix_LoadWAV("data/snd/intro.wav");
+   if (intro == NULL)  {fprintf(stderr, ERR_MSG1); exit(0);} 
+   Mix_VolumeChunk(intro, MIX_MAX_VOLUME ); 
+ 
    sound = Mix_LoadWAV("data/snd/rockets.wav");
    if (sound == NULL) {fprintf(stderr, ERR_MSG1); exit(0);} 
    Mix_VolumeChunk( sound, MIX_MAX_VOLUME );
@@ -296,7 +306,6 @@ void LoadAssets(){
    shot = Mix_LoadWAV("data/snd/shot.wav");
    if (shot == NULL) {fprintf(stderr, ERR_MSG1); exit(0);}    
    Mix_VolumeChunk(shot, MIX_MAX_VOLUME ); 
-
 
    expsnd = Mix_LoadWAV("data/snd/explosion.wav");
    if (expsnd == NULL) {fprintf(stderr, ERR_MSG1); exit(0);}    
@@ -375,11 +384,64 @@ void addAsteroid(int X,int Y,int DIRX, int DIRY, int size)
     asteroids = addend(asteroids, newelement(temp)); 
 }
 
-void NewGame(int currentLevel){
-  int i,a,tDIRX,tDIRY,tSIZE,tX,tY;
+void Intro(){
+   char introStr[10];
+   char helpStr0[100];
+   char helpStr1[100];
+   char helpStr2[100];
+   char helpStr3[100];
+   char helpStr4[100];
+   int wherey=0;
+   BOOL keyFlag = FALSE;
+   SDL_Event e;
+   
+   SDL_RenderClear(ren1);
+   Draw(0,0,background);
+   sprintf(introStr, "AST3R0ID");
+   if (Mix_Playing(1) == 0) Mix_PlayChannel(1, intro, 0);
+   do{ 
+    SDL_RenderClear(ren1);
+    Draw(0,0,background);
+     DrawText(introStr, 100, 80,wherey, 255,0, 0, 0, 0, 0,TRUE); 
+     DrawText(introStr, 100, 85,wherey+5,255,255, 0, 0, 0, 0,TRUE); 
+     SDL_RenderPresent(ren1);
+     SDL_Delay(10);
+     wherey = wherey + 3;
+   } while (wherey < 100);
+   sprintf(helpStr0, "Coded by v3l0r3k - 2021 ");
+   sprintf(helpStr1, "CONTROLS: ");
+   sprintf(helpStr2, "^: UP  v: DOWN <- : LEFT  -> : RIGHT | SPACE : SHOOT ");
+   sprintf(helpStr3, "F: FULLSCREEN |  ESC: EXIT");
+   sprintf(helpStr4, "PRESS ANY KEY TO START");
 
+   DrawText(helpStr0, 12, 230,200,105,105, 105, 0, 0, 0,TRUE); 
+   DrawText(helpStr1, 12, 10,370,255,255, 255, 0, 0, 0,TRUE); 
+   DrawText(helpStr2, 12, 10,390,255,255, 255, 0, 0, 0,TRUE); 
+   DrawText(helpStr3, 12, 10,410,255,255, 255, 0, 0, 0,TRUE); 
+   DrawText(helpStr4, 16, 200,250,255,255, 255, 0, 0, 0,TRUE); 
+
+   SDL_RenderPresent(ren1);
+
+   do {
+    if (SDL_PollEvent(&e)) {
+      if (e.type == SDL_QUIT) {
+        Running = FALSE;
+        break;
+      }    
+      if (e.type == SDL_KEYDOWN){
+       keyFlag = TRUE;
+      }
+      }
+
+   } while (keyFlag ==FALSE);
+   SDL_Delay(100);
+}
+
+void  NewGame(int currentLevel){
+  int i,a,tDIRX,tDIRY,tSIZE,tX,tY;
+ 
   if (asteroids != NULL) deleteList(&asteroids);
-  
+
   lives = MAX_LIFE;
   /* SHIP */ 
   ship.X = 100;
@@ -537,6 +599,7 @@ void DrawScreen() {
    int i, a;
    char pointstext[12];
    char levelstr[12];
+   char beststr[30];
 
    SDL_RenderClear(ren1);
    Draw(0,0,background);
@@ -571,6 +634,8 @@ void DrawScreen() {
  DrawText(pointstext, 13, 70,15, 255,255,255, 0, 0, 0,TRUE);
  sprintf(levelstr, "LEVEL: %d", currentLevel);
  DrawText(levelstr, 15, 550,2, 255,0,0, 0, 0, 0,TRUE);
+ sprintf(beststr, "BEST SCORE: %d", bestScore);
+ DrawText(beststr, 15, 280,5, 255,255,255, 0, 0, 0,TRUE);
  SDL_RenderPresent(ren1);
 }
 
@@ -704,7 +769,8 @@ void moveAsteroids(){
                 //Game Over
                 Mix_HaltChannel(-1);
 		explosion = TRUE;
-		points = 0;
+  		if (bestScore < points) bestScore = points;
+  		points = 0;
 	}
 
     }
