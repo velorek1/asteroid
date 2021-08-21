@@ -177,9 +177,9 @@ BOOL InitVideo(){
    SDL_Init(SDL_INIT_VIDEO);
    IMG_Init(IMG_INIT_PNG);
 #ifdef __linux__ 
-   win1 = SDL_CreateWindow(" > Ast3r0id <", 50,0,SCREEN_W,SCREEN_H,SDL_WINDOW_SHOWN);
+   win1 = SDL_CreateWindow(" > Ast3r0id <", 50,50,SCREEN_W,SCREEN_H,SDL_WINDOW_SHOWN);
 #elif _WIN32
-   win1 = SDL_CreateWindow(" > Ast3r0id <", 50,0,SCREEN_W,SCREEN_H,SDL_WINDOW_FULLSCREEN);
+   win1 = SDL_CreateWindow(" > Ast3r0id <", 50,50,SCREEN_W,SCREEN_H,SDL_WINDOW_SHOWN);
 #else
 #endif
    ren1 = SDL_CreateRenderer(win1, -1, 0);
