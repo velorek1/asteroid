@@ -15,6 +15,7 @@ typedef struct _object
    	int X,Y,W,H,DIRX,DIRY,Life;
    	float FX,FY,DX,DY;
    	int Angle;
+	BOOL visible;
 	struct _object *next;
 } OBJECT;
 

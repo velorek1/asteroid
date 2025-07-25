@@ -50,14 +50,22 @@ typedef struct _sprite{
    SDL_Surface *Img;
 } SPRITE;
 
+typedef struct {
+    Uint32 start_time;
+    Uint32 duration;
+    BOOL running;
+} Timer;
+
 enum SHIPSTATE{HALTED, UTHRUST, DTHRUST, LTHRUST, RTHRUST, DAMAGED};
 
 /* GLOBALS */
 OBJECT ship;
+OBJECT lifeS;
+OBJECT lifesupport;
 OBJECT *asteroids;
 OBJECT *projectiles;
 SPRITE shipSprite[9];
-SDL_Surface *background,*asteroid,*projectile,*explosionIMG,*debris,*indicators;
+SDL_Surface *background,*asteroid,*projectile,*explosionIMG,*debris,*indicators,*plifesupport;
 SDL_Event ev;
 SDL_Renderer *ren1;
 SDL_Window *win1;
@@ -81,6 +89,7 @@ BOOL reversed=FALSE;
 BOOL shipstill=FALSE;
 double velocity = SPEED;
 int bestScore = 0;
+Timer spawnTimer;
 /* ---------------------------------------------- */
 /* FUNCTION PROTOTYPES */
 /* ---------------------------------------------- */
@@ -125,7 +134,14 @@ void DrawScreen();
 void DrawText(char* string,int size, int x, int y,int fR, int fG, int fB,int bR, int bG, int bB, BOOL transparent);
 void LoadAsteroids();
 void addAsteroid(int X,int Y,int DIRX, int DIRY, int size);
- 
+
+//TIMERS
+void gTimer_Start(Timer *timer, Uint32 duration_ms);
+BOOL gTimer_HasElapsed(Timer *timer);
+void gTimer_Stop(Timer *timer);
+BOOL timer1(int *ticks, double *time, int ms);
+BOOL lerp(double *value, double *time, int ms);
+
 /* ---------------------------------------------- */
 /* MAIN - ENTRY POINT */ 
 /* ---------------------------------------------- */
@@ -182,7 +198,7 @@ BOOL InitVideo(){
    win1 = SDL_CreateWindow(" > Ast3r0id <", 50,50,SCREEN_W,SCREEN_H,SDL_WINDOW_SHOWN);
 #else
 #endif
-   ren1 = SDL_CreateRenderer(win1, -1, 0);
+   ren1 = SDL_CreateRenderer(win1, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
    SDL_SetWindowBordered(win1,SDL_TRUE);
    return (ren1 != NULL) && (win1 != NULL);
 }
@@ -197,6 +213,10 @@ BOOL InitAudio(){
 } 
 void ToggleFullscreen(SDL_Window* Window) {
     Uint32 FullscreenFlag = SDL_WINDOW_FULLSCREEN;
+    SDL_SetWindowFullscreen(win1, 0); // exit fullscreen
+    SDL_SetWindowBordered(win1, SDL_FALSE);
+    SDL_SetWindowPosition(win1, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED); 
+    SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "1");
     BOOL IsFullscreen = SDL_GetWindowFlags(Window) & FullscreenFlag;
     SDL_SetWindowFullscreen(Window, IsFullscreen ? 0 : FullscreenFlag);
     SDL_ShowCursor(IsFullscreen);
@@ -266,7 +286,8 @@ void LoadAssets(){
   if (debris == NULL)  {fprintf(stderr, ERR_MSG1); exit(0);}  
   indicators = IMG_Load("data/pics/indicators.png");
   if (indicators == NULL)  {fprintf(stderr, ERR_MSG1); exit(0);}  
-
+  plifesupport = IMG_Load("data/pics/life.png");
+  if (plifesupport == NULL)  {fprintf(stderr, ERR_MSG1); exit(0);}  
 
   shipSprite[0].Img = IMG_Load("data/pics/ship.png");
   if (shipSprite[0].Img == NULL) {fprintf(stderr, ERR_MSG1);exit(0);}   
@@ -288,6 +309,7 @@ void LoadAssets(){
   if (shipSprite[8].Img == NULL) {fprintf(stderr, ERR_MSG1);exit(0);}
   
   ship.Img = shipSprite[0].Img;   
+  lifeS.Img = plifesupport;
   explosionIMG = IMG_Load("data/pics/exp.png");
   if (explosionIMG == NULL)  {fprintf(stderr, ERR_MSG1); exit(0);}  
 
@@ -443,6 +465,16 @@ void  NewGame(int currentLevel){
   if (asteroids != NULL) deleteList(&asteroids);
 
   lives = MAX_LIFE;
+  gTimer_Start(&spawnTimer, 2000); // 2 seconds
+  
+  // Health powerUP
+  lifeS.X = randnum(SCREEN_W)+32;
+  lifeS.Y = randnum(SCREEN_H)+32;
+  lifeS.W = 32;
+  lifeS.H = 32;
+  lifeS.Angle = 0;
+  lifeS.visible = FALSE;
+
   /* SHIP */ 
   ship.X = 100;
   ship.Y = 100;
@@ -600,7 +632,6 @@ void DrawScreen() {
    char pointstext[12];
    char levelstr[12];
    char beststr[30];
-
    SDL_RenderClear(ren1);
    Draw(0,0,background);
    switch (ShipState){
@@ -629,6 +660,15 @@ void DrawScreen() {
 	explosion=timer1(&expticks,&timetemp,100);
 	DrawAnimation(ship.X,ship.Y,60,60,expticks,explosionIMG); 
    }
+
+  if (gTimer_HasElapsed(&spawnTimer)) {
+      //collision restarts timer
+      //random position and random time
+    lifeS.visible = TRUE;
+    Draw(lifeS.X,lifeS.Y,lifeS.Img);
+    //gTimer_Start(&spawnTimer, 2000); // Restart timer
+  }  
+
  DrawLife();  
  sprintf(pointstext, "%d", points);
  DrawText(pointstext, 13, 70,15, 255,255,255, 0, 0, 0,TRUE);
@@ -748,6 +788,16 @@ void Ship_Behaviour(){
   if (ship.Y > SCREEN_H+10) {ship.Y = 0; ship.DY = 0;}
   if (ship.X > SCREEN_W + 10) {ship.X = 0; ship.DX = 0;}
   if (ship.X < -10) {ship.X = SCREEN_W; ship.DX = SCREEN_W;}
+
+  //Collision with life_powerup
+  if (Collision(ship.X+5,ship.Y+5,ship.X+ship.W-5,ship.Y+ship.H-5,lifeS.X,lifeS.Y, lifeS.X+32,lifeS.Y+32) && lifeS.visible){
+     printf("Collision!\n");
+     lifeS.visible = FALSE;
+     lives = lives + 10;
+     lifeS.X = randnum(SCREEN_W) +32;
+     lifeS.Y = randnum(SCREEN_H) +32;
+     gTimer_Start(&spawnTimer, 2000); // Restart timer
+  }
 }
 
 void moveAsteroids(){
@@ -823,6 +873,21 @@ void ShootPlayerBullet(){
 /* ==========================================================*/
 // TIMERS
 /* ==========================================================*/
+
+void gTimer_Start(Timer *timer, Uint32 duration_ms) {
+    timer->start_time = SDL_GetTicks();
+    timer->duration = duration_ms;
+    timer->running = TRUE;
+}
+
+BOOL gTimer_HasElapsed(Timer *timer) {
+    if (!timer->running) return FALSE;
+    return SDL_GetTicks() - timer->start_time >= timer->duration;
+}
+
+void gTimer_Stop(Timer *timer) {
+    timer->running = FALSE;
+}
 
 BOOL timer1(int *ticks, double *time, int ms){
 BOOL value;
